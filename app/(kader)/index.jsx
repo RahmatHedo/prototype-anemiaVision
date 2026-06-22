@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, Platform, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../_layout';
 import { getScreenings } from '../../utils/storage';
@@ -11,35 +11,18 @@ export default function KaderHomeScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const [screenings, setScreenings] = useState([]);
-  const [stats, setStats] = useState({ total: 48, anemia: 12, ringan: 7, sedang: 4, berat: 1 });
+  const [mayaScreenings, setMayaScreenings] = useState([]);
+  const [latestCheck, setLatestCheck] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
     try {
       const data = await getScreenings();
       setScreenings(data);
-      
-      // Compute stats dynamically on top of the screenshot reference figures
-      // Seed screenings has 6 items (AV-0007 to AV-0012)
-      // Any item with ID > AV-0012 is a new user-created screening
-      const newScreenings = data.filter(item => {
-        const num = parseInt(item.id.replace('AV-', ''), 10) || 0;
-        return num > 12;
-      });
-
-      const newTotal = newScreenings.length;
-      const newRingan = newScreenings.filter(item => item.result === 'Ringan').length;
-      const newSedang = newScreenings.filter(item => item.result === 'Sedang').length;
-      const newBerat = newScreenings.filter(item => item.result === 'Berat').length;
-      const newAnemia = newRingan + newSedang + newBerat;
-
-      setStats({
-        total: 48 + newTotal,
-        anemia: 12 + newAnemia,
-        ringan: 7 + newRingan,
-        sedang: 4 + newSedang,
-        berat: 1 + newBerat
-      });
+      // Filter screenings belonging to Maya (ID starts with AV-0012)
+      const filtered = data.filter(item => item.id.startsWith('AV-0012'));
+      setMayaScreenings(filtered);
+      setLatestCheck(filtered[0] || null);
     } catch (e) {
       console.error(e);
     } finally {
@@ -54,16 +37,9 @@ export default function KaderHomeScreen() {
   }, []);
 
   const getStatusDotColor = (item) => {
-    // Hardcode match for the seed data so they look identical to the screenshot
-    if (item.id === 'AV-0012' && item.time === '10:15 WIB') return '#22C55E'; // green
-    if (item.id === 'AV-0011') return '#94A3B8'; // gray
-    if (item.id === 'AV-0010') return '#EAB308'; // yellow
-    if (item.id === 'AV-0012' && item.time === '09:55 WIB') return '#94A3B8'; // gray (from screenshot bottom item)
-    
-    // Fallback/dynamic color for new screenings
-    if (item.result === 'No Anemia') return '#94A3B8';
-    if (item.result === 'Ringan') return '#22C55E';
-    if (item.result === 'Sedang') return '#EAB308';
+    if (item.result === 'No Anemia') return '#10B981';
+    if (item.result === 'Ringan') return '#F59E0B';
+    if (item.result === 'Sedang') return '#F97316';
     if (item.result === 'Berat') return '#EF4444';
     return '#94A3B8';
   };
@@ -76,6 +52,22 @@ export default function KaderHomeScreen() {
   const getSyncText = (status) => {
     if (status === 'synced') return 'Tersinkronisasi';
     return 'Pending';
+  };
+
+  const getResultBannerColor = (result) => {
+    if (result === 'No Anemia') return '#ECFDF5';
+    if (result === 'Ringan') return '#FEF3C7';
+    if (result === 'Sedang') return '#FFEDD5';
+    if (result === 'Berat') return '#FEE2E2';
+    return '#F1F5F9';
+  };
+
+  const getResultTextColor = (result) => {
+    if (result === 'No Anemia') return '#10B981';
+    if (result === 'Ringan') return '#D97706';
+    if (result === 'Sedang') return '#EA580C';
+    if (result === 'Berat') return '#EF4444';
+    return '#64748B';
   };
 
   return (
@@ -101,51 +93,64 @@ export default function KaderHomeScreen() {
       </View>
 
       {/* Greeting Title */}
-      <Text style={styles.greetingTitle}>Selamat Pagi, Kak Kader!</Text>
+      <Text style={styles.greetingTitle}>Selamat Pagi, Maya!</Text>
 
-      {/* Screening Summary Card */}
+      {/* Personal Health Status Card */}
       <View style={styles.summaryCard}>
         {/* Sync Badge */}
-        <View style={styles.syncBadge}>
-          <Text style={styles.syncBadgeText}>✓ Data Tersinkronisasi</Text>
-        </View>
-
-        <Text style={styles.cardHeaderTitle}>Ringkasan</Text>
-        <Text style={styles.cardHeaderSubtitle}>Skrining Hari Ini (Sesi 3)</Text>
-
-        <Text style={styles.totalText}>
-          Total Siswi Diskrining: <Text style={styles.boldText}>{stats.total}</Text> / 60
-        </Text>
-
-        {/* Progress Bar */}
-        <View style={styles.progressBarBg}>
-          <View style={[styles.progressBarFill, { width: `${(stats.total / 60) * 100}%` }]} />
-        </View>
-
-        {/* Severity Stats */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statRowMain}>
-            <Activity size={16} color="#F87171" style={{ marginRight: 8 }} />
-            <Text style={styles.statLabelMain}>Terdeteksi Anemia: <Text style={styles.boldText}>{stats.anemia}</Text></Text>
+        {latestCheck && (
+          <View style={[styles.syncBadge, { backgroundColor: latestCheck.syncStatus === 'synced' ? '#DCFCE7' : '#FEF3C7' }]}>
+            <Text style={[styles.syncBadgeText, { color: latestCheck.syncStatus === 'synced' ? '#15803D' : '#D97706' }]}>
+              {latestCheck.syncStatus === 'synced' ? '✓ Tersinkronisasi' : '⏳ Pending'}
+            </Text>
           </View>
-          
-          <View style={styles.statRowSub}>
-            <View style={styles.subStatItem}>
-              <View style={[styles.dotIndicator, { backgroundColor: '#22C55E' }]} />
-              <Text style={styles.statLabelSub}>Ringan: <Text style={styles.boldText}>{stats.ringan}</Text></Text>
+        )}
+
+        <Text style={styles.cardHeaderTitle}>Status Kesehatan</Text>
+        <Text style={styles.cardHeaderSubtitle}>Pemeriksaan Mandiri Terakhir</Text>
+
+        {latestCheck ? (
+          <View style={{ marginTop: 12 }}>
+            <View style={[styles.statusBanner, { backgroundColor: getResultBannerColor(latestCheck.result) }]}>
+              <Activity size={16} color={getResultTextColor(latestCheck.result)} style={{ marginRight: 8 }} />
+              <Text style={[styles.statusBannerText, { color: getResultTextColor(latestCheck.result) }]}>
+                Diagnosis AI: Anemia {latestCheck.result === 'No Anemia' ? 'Negatif (Sehat)' : latestCheck.result}
+              </Text>
             </View>
-            <Text style={styles.statSeparator}>|</Text>
-            <View style={styles.subStatItem}>
-              <View style={[styles.dotIndicator, { backgroundColor: '#EAB308' }]} />
-              <Text style={styles.statLabelSub}>Sedang: <Text style={styles.boldText}>{stats.sedang}</Text></Text>
+
+            <View style={styles.metaInfoRow}>
+              <Text style={styles.metaInfoText}>
+                ID Siswi: <Text style={styles.boldText}>AV-0012</Text>
+              </Text>
+              <Text style={styles.metaInfoText}>
+                Waktu Periksa: <Text style={styles.boldText}>{latestCheck.date} | {latestCheck.time}</Text>
+              </Text>
+              <Text style={styles.metaInfoText}>
+                Tingkat Keyakinan: <Text style={styles.boldText}>{latestCheck.confidence}%</Text>
+              </Text>
             </View>
-            <Text style={styles.statSeparator}>|</Text>
-            <View style={styles.subStatItem}>
-              <View style={[styles.dotIndicator, { backgroundColor: '#EF4444' }]} />
-              <Text style={styles.statLabelSub}>Berat: <Text style={styles.boldText}>{stats.berat}</Text></Text>
+
+            {/* Recommendation Box */}
+            <View style={styles.personalRecommBox}>
+              <Text style={styles.personalRecommText}>
+                {latestCheck.result === 'No Anemia' 
+                  ? 'Kondisi Anda baik! Tetap makan makanan bergizi kaya zat besi dan vitamin C.'
+                  : latestCheck.result === 'Ringan'
+                  ? 'Minum 1 Tablet Tambah Darah (TTD) seminggu sekali & konsumsi bayam/daging merah.'
+                  : latestCheck.result === 'Sedang'
+                  ? 'Dianjurkan berkonsultasi dengan UKS sekolah atau Puskesmas terdekat.'
+                  : '⚠️ KASUS KRITIS. Segera laporkan ke UKS sekolah atau kunjungi Puskesmas terdekat.'}
+              </Text>
             </View>
           </View>
-        </View>
+        ) : (
+          <View style={styles.noCheckContainer}>
+            <Text style={styles.noCheckText}>Belum ada riwayat skrining mandiri.</Text>
+            <TouchableOpacity style={styles.ctaCekMataBtn} onPress={() => router.push('/(kader)/camera')}>
+              <Text style={styles.ctaCekMataText}>Mulai Cek Sekarang</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* Pagination dots */}
@@ -156,23 +161,23 @@ export default function KaderHomeScreen() {
       </View>
 
       {/* Section Title */}
-      <Text style={styles.sectionTitle}>Skrining Terakhir (ID Anonim)</Text>
+      <Text style={styles.sectionTitle}>Riwayat Skrining Saya (ID: AV-0012)</Text>
 
       {/* Screenings List */}
       <View style={styles.listContainer}>
         {loading ? (
           <ActivityIndicator size="small" color="#0D9488" style={{ marginTop: 20 }} />
-        ) : screenings.length === 0 ? (
-          <Text style={styles.emptyText}>Belum ada riwayat skrining hari ini.</Text>
+        ) : mayaScreenings.length === 0 ? (
+          <Text style={styles.emptyText}>Belum ada riwayat skrining mandiri.</Text>
         ) : (
-          screenings.slice(0, 5).map((item, index) => (
+          mayaScreenings.slice(0, 5).map((item, index) => (
             <View key={item.id + '-' + index} style={styles.listItem}>
               <View style={styles.listItemLeft}>
                 <Text style={styles.listItemMainText}>
-                  {item.id} | {item.time} | {getResultDisplay(item.result)}
+                  {item.id} | {item.time} | {item.date}
                 </Text>
                 <Text style={styles.listItemSubText}>
-                  [Status: {getSyncText(item.syncStatus)}]
+                  Hasil: Anemia {item.result === 'No Anemia' ? 'Negatif' : item.result} | Keyakinan: {item.confidence}%
                 </Text>
               </View>
               <View style={[styles.statusDot, { backgroundColor: getStatusDotColor(item) }]} />
@@ -197,7 +202,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingTop: Platform.OS === 'ios' ? 54 : (StatusBar.currentHeight || 24) + 12,
     paddingBottom: 10,
   },
   logoContainer: {
@@ -283,64 +288,61 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     marginBottom: 16,
   },
-  totalText: {
-    fontSize: 16,
-    color: '#0F172A',
-    marginBottom: 10,
-  },
   boldText: {
     fontWeight: 'bold',
   },
-  progressBarBg: {
-    height: 8,
-    backgroundColor: '#E2E8F0',
-    borderRadius: 4,
-    width: '100%',
-    marginBottom: 20,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#0D9488',
-    borderRadius: 4,
-  },
-  statsContainer: {
-    marginTop: 4,
-  },
-  statRowMain: {
+  statusBanner: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  statusBannerText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    flex: 1,
+  },
+  metaInfoRow: {
+    marginBottom: 14,
+  },
+  metaInfoText: {
+    fontSize: 13,
+    color: '#475569',
+    marginBottom: 4,
+  },
+  personalRecommBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  personalRecommText: {
+    fontSize: 12,
+    color: '#475569',
+    lineHeight: 18,
+  },
+  noCheckContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  noCheckText: {
+    fontSize: 13.5,
+    color: '#64748B',
     marginBottom: 12,
   },
-  statLabelMain: {
-    fontSize: 15,
-    color: '#0F172A',
-    fontWeight: '500',
+  ctaCekMataBtn: {
+    backgroundColor: '#0D9488',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
   },
-  statRowSub: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingRight: 10,
-  },
-  subStatItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dotIndicator: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 6,
-  },
-  statLabelSub: {
-    fontSize: 13,
-    color: '#0F172A',
-  },
-  statSeparator: {
-    color: '#E2E8F0',
-    fontSize: 14,
-    marginHorizontal: 4,
+  ctaCekMataText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '700',
   },
   paginationDots: {
     flexDirection: 'row',

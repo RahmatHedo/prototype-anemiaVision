@@ -3,29 +3,25 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, ActivityIn
 import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { verifyImageQuality, runPhase1CNN, runPhase2MLP, NO_ANEMIA_RECOMMENDATION } from '../../utils/classifier';
-import { saveScreening, getScreenings } from '../../utils/storage';
-import { Camera as CameraIcon, ShieldAlert, CheckCircle, RefreshCw, X, ChevronRight, HelpCircle, Eye, Info } from 'lucide-react-native';
+import { verifyImageQuality, runPhase1CNN, runPhase2MLP } from '../../utils/classifier';
+import { saveScreening } from '../../utils/storage';
+import { Camera as CameraIcon, ShieldAlert, CheckCircle, RefreshCw, X, ChevronRight, HelpCircle, Eye, Info, Check, AlertTriangle, Calendar } from 'lucide-react-native';
 
 const { width, height } = Dimensions.get('window');
 
-export default function CameraScreen() {
+export default function TbmCameraScreen() {
   const router = useRouter();
   const isFocused = useIsFocused();
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef(null);
   
   // App States
-  const [step, setStep] = useState('camera'); // 'camera', 'quality_check', 'phase1', 'form', 'phase2', 'result'
+  const [step, setStep] = useState('camera'); // 'camera', 'quality_check', 'form', 'ai_processing', 'verification', 'result'
   const [flash, setFlash] = useState(true);
   const [loadingText, setLoadingText] = useState('');
   const [photoUri, setPhotoUri] = useState(null);
   
-  // AI Screenings results state
-  const [cnnResult, setCnnResult] = useState(null); // { isAnemic, confidence }
-  const [finalResult, setFinalResult] = useState(null); // { result, confidence, color, recommendation, yesCount }
-  
-  // Clinical Answers (updated for detailed 7 inputs)
+  // 7 Clinical Parameter States (always filled in for TBM checks)
   const [age, setAge] = useState('');
   const [menstrualRegularity, setMenstrualRegularity] = useState('Teratur'); // 'Teratur', 'Tidak Teratur'
   const [menstrualDuration, setMenstrualDuration] = useState('');
@@ -33,7 +29,31 @@ export default function CameraScreen() {
   const [menstrualVolume, setMenstrualVolume] = useState('Normal'); // 'Sedikit', 'Normal', 'Banyak'
   const [ttdCompliance, setTtdCompliance] = useState('Rutin'); // 'Rutin', 'Kadang-kadang', 'Tidak Pernah'
   const [foodFrequency, setFoodFrequency] = useState('Cukup'); // 'Sering', 'Cukup', 'Jarang/Tidak Pernah'
-  const [symptoms, setSymptoms] = useState([]); // Array of strings: 'lelah', 'pusing', 'mata_berkunang', 'pucat', 'sesak_napas'
+  const [symptoms, setSymptoms] = useState([]); // 'lelah', 'pusing', 'mata_berkunang', 'pucat', 'sesak_napas'
+
+  // AI Combined prediction result state
+  const [aiResult, setAiResult] = useState(null); // { result, confidence, isAnemic, mlpScore }
+  
+  // TBM Lab Verification states
+  const [session, setSession] = useState('Sesi 3'); // 'Sesi 1', 'Sesi 2', 'Sesi 3', 'Sesi 4'
+  const [hbValue, setHbValue] = useState('');
+  const [isConsistent, setIsConsistent] = useState(true); // Matches AI result?
+  const [tbmOverrideResult, setTbmOverrideResult] = useState('No Anemia'); // 'No Anemia', 'Ringan', 'Sedang', 'Berat'
+  
+  // Date state (default to today's date in DD/MM/YYYY)
+  const getTodayDateString = () => {
+    const now = new Date();
+    const day = now.getDate().toString().padStart(2, '0');
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const year = now.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+  const [checkDate, setCheckDate] = useState('');
+
+  // Set default date when component mounts or resets
+  useEffect(() => {
+    setCheckDate(getTodayDateString());
+  }, [step]);
 
   // Photo quality check error modal
   const [qualityError, setQualityError] = useState(null);
@@ -47,14 +67,12 @@ export default function CameraScreen() {
         
         let photoUriToUse = '';
         try {
-          // Take picture from actual camera
           const photo = await cameraRef.current.takePictureAsync({
             quality: 0.8,
           });
           photoUriToUse = photo.uri;
         } catch (captureError) {
-          console.warn('Gagal capture kamera asli, menggunakan mock-fallback:', captureError.message);
-          // Fallback to mock image to support emulator/simulator testing
+          console.warn('Gagal capture kamera TBM, menggunakan mock-fallback:', captureError.message);
           photoUriToUse = 'mock://eye-conjunctiva-sample.jpg';
         }
         
@@ -68,27 +86,9 @@ export default function CameraScreen() {
           return;
         }
 
-        // Quality check passed -> proceed to Phase 1 CNN
-        setStep('phase1');
-        setLoadingText('Menganalisis foto konjungtiva...');
-        
-        const cnnRes = await runPhase1CNN(photoUriToUse);
-        setCnnResult(cnnRes);
+        // Quality check passed -> proceed to 7 Clinical parameters form step
+        setStep('form');
 
-        if (!cnnRes.isAnemic) {
-          // Phase 1 Negative: No Anemia -> Jump to results
-          setFinalResult({
-            result: NO_ANEMIA_RECOMMENDATION.result,
-            color: NO_ANEMIA_RECOMMENDATION.color,
-            confidence: NO_ANEMIA_RECOMMENDATION.confidence,
-            recommendation: NO_ANEMIA_RECOMMENDATION.recommendation,
-            yesCount: 0
-          });
-          setStep('result');
-        } else {
-          // Phase 1 Positive: Terindikasi Anemia -> Go to clinical form
-          setStep('form');
-        }
       } catch (error) {
         Alert.alert('Error Kamera', 'Gagal mengambil gambar: ' + error.message);
         setStep('camera');
@@ -104,8 +104,9 @@ export default function CameraScreen() {
     }
   };
 
+  // Submit clinical answers and calculate combined AI result (CNN + MLP)
   const submitClinicalForm = async () => {
-    // Basic validation
+    // Form validation
     if (!age.trim()) {
       Alert.alert('Belum Lengkap', 'Silakan masukkan usia.');
       return;
@@ -119,38 +120,90 @@ export default function CameraScreen() {
       return;
     }
 
-    setStep('phase2');
-    setLoadingText('Menghitung tingkat keparahan...');
-    
-    const inputAnswers = {
-      age: parseInt(age, 10),
-      menstrualRegularity,
-      menstrualDuration: parseInt(menstrualDuration, 10),
-      padsPerDay: parseInt(padsPerDay, 10),
-      menstrualVolume,
-      ttdCompliance,
-      foodFrequency,
-      symptoms
-    };
+    setStep('ai_processing');
+    setLoadingText('Mengevaluasi foto & parameter klinis...');
 
-    const mlpRes = await runPhase2MLP(inputAnswers);
-    setFinalResult(mlpRes);
-    setStep('result');
+    try {
+      // 1. Run Stage 1 CNN on photo
+      const cnnRes = await runPhase1CNN(photoUri);
+
+      // 2. Run Stage 2 MLP on answers
+      const inputAnswers = {
+        age: parseInt(age, 10),
+        menstrualRegularity,
+        menstrualDuration: parseInt(menstrualDuration, 10),
+        padsPerDay: parseInt(padsPerDay, 10),
+        menstrualVolume,
+        ttdCompliance,
+        foodFrequency,
+        symptoms
+      };
+      const mlpRes = await runPhase2MLP(inputAnswers);
+
+      // 3. Combined Logic:
+      // If Stage 1 CNN is negative (No Anemia), combined result is 'No Anemia'.
+      // If Stage 1 CNN is positive, combined result is MLP's triage (Mild/Moderate/Severe).
+      let combinedCategory = 'No Anemia';
+      let confidenceScore = cnnRes.confidence;
+
+      if (cnnRes.isAnemic) {
+        combinedCategory = mlpRes.result; // 'Ringan', 'Sedang', or 'Berat'
+        confidenceScore = mlpRes.confidence;
+      }
+
+      setAiResult({
+        result: combinedCategory,
+        confidence: confidenceScore,
+        isAnemic: cnnRes.isAnemic,
+        mlpScore: mlpRes.riskScore
+      });
+
+      // Default override matches AI initially
+      setTbmOverrideResult(combinedCategory);
+      setStep('verification');
+
+    } catch (e) {
+      Alert.alert('Error AI', 'Gagal memproses analisis AI: ' + e.message);
+      setStep('form');
+    }
   };
 
-  const saveAndExit = async () => {
-    try {
-      const data = await getScreenings();
-      const mayaChecks = data.filter(item => item.id.startsWith('AV-0012'));
-      // Calculate next sub-index, e.g. AV-0012-01, AV-0012-02, etc.
-      const nextIndex = mayaChecks.length + 1;
-      const customId = `AV-0012-${nextIndex.toString().padStart(2, '0')}`;
+  const saveVerificationResult = async () => {
+    // Validate Hb Value
+    if (!hbValue || isNaN(parseFloat(hbValue))) {
+      Alert.alert('Error', 'Silakan masukkan nilai Hemoglobin (Hb) yang valid.');
+      return;
+    }
+    const hbVal = parseFloat(hbValue);
+    if (hbVal < 3.0 || hbVal > 22.0) {
+      Alert.alert('Validasi Gagal', 'Nilai hemoglobin harus berkisar antara 3.0 hingga 22.0 g/dL.');
+      return;
+    }
 
+    // Validate Custom Date format (DD/MM/YYYY)
+    const dateRegex = /^\d{2}\/\d{2}\/\d{4}$/;
+    if (!dateRegex.test(checkDate)) {
+      Alert.alert('Validasi Tanggal', 'Format tanggal salah. Gunakan format DD/MM/YYYY (contoh: 22/06/2026).');
+      return;
+    }
+
+    setStep('saving');
+    setLoadingText('Menyimpan hasil ke database...');
+
+    try {
+      const finalCategory = isConsistent ? aiResult.result : tbmOverrideResult;
+
+      // Save record with customized date and session override
       await saveScreening({
-        id: customId,
-        result: finalResult.result,
-        confidence: finalResult.confidence,
-        answers: cnnResult.isAnemic ? {
+        result: finalCategory,
+        confidence: aiResult.confidence,
+        session,
+        hbValue: hbVal,
+        tbmResult: finalCategory,
+        isConsistent,
+        rawCnnScore: aiResult.confidence,
+        date: checkDate, // Custom date from TBM input
+        answers: {
           age: parseInt(age, 10),
           menstrualRegularity,
           menstrualDuration: parseInt(menstrualDuration, 10),
@@ -159,20 +212,23 @@ export default function CameraScreen() {
           ttdCompliance,
           foodFrequency,
           symptoms
-        } : {},
-        rawCnnScore: cnnResult.confidence
+        }
       });
-      // Navigate back to history
-      router.replace('/(kader)/riwayat');
+
+      setStep('result');
     } catch (e) {
       Alert.alert('Error', 'Gagal menyimpan data skrining.');
+      setStep('verification');
     }
   };
 
   const resetScreen = () => {
     setStep('camera');
-    setCnnResult(null);
-    setFinalResult(null);
+    setAiResult(null);
+    setHbValue('');
+    setSession('Sesi 3');
+    setIsConsistent(true);
+    setTbmOverrideResult('No Anemia');
     setAge('');
     setMenstrualRegularity('Teratur');
     setMenstrualDuration('');
@@ -201,7 +257,7 @@ export default function CameraScreen() {
         <ShieldAlert size={54} color="#EF4444" style={{ marginBottom: 16 }} />
         <Text style={styles.permissionTitle}>Akses Kamera Diperlukan</Text>
         <Text style={styles.permissionDesc}>
-          Aplikasi memerlukan izin akses kamera untuk mengambil foto konjungtiva mata Anda secara langsung.
+          Aplikasi memerlukan izin akses kamera untuk mengambil foto konjungtiva mata siswi secara langsung.
         </Text>
         <TouchableOpacity style={styles.permissionBtn} onPress={requestPermission}>
           <Text style={styles.permissionBtnText}>Izinkan Kamera</Text>
@@ -242,7 +298,7 @@ export default function CameraScreen() {
             <TouchableOpacity onPress={() => router.back()} style={styles.cameraHeaderBtn}>
               <X size={20} color="#FFF" />
             </TouchableOpacity>
-            <Text style={styles.cameraTitle}>Deteksi Konjungtiva</Text>
+            <Text style={styles.cameraTitle}>Skrining TBMs</Text>
             <TouchableOpacity onPress={() => setFlash(!flash)} style={styles.cameraHeaderBtn}>
               <Text style={{ color: flash ? '#EAB308' : '#FFF', fontSize: 11, fontWeight: '700' }}>
                 {flash ? '⚡ FLASH' : '⚡ OFF'}
@@ -253,7 +309,7 @@ export default function CameraScreen() {
           {/* Sub banner */}
           <View style={styles.instructionBanner}>
             <Info size={14} color="#CCFBF1" style={{ marginRight: 6 }} />
-            <Text style={styles.instructionText}>Tarik kelopak mata bawah untuk mengekspos bagian dalam yang merah/pucat.</Text>
+            <Text style={styles.instructionText}>Tarik kelopak mata bawah siswi untuk mengarahkan kamera pada konjungtiva mata.</Text>
           </View>
 
           {/* Shutter controls */}
@@ -269,32 +325,32 @@ export default function CameraScreen() {
         </View>
       )}
 
-      {/* 2. LOADING STEPS (Quality Check, Phase 1, Phase 2) */}
-      {(step === 'quality_check' || step === 'phase1' || step === 'phase2') && (
+      {/* 2. LOADING STEPS (Quality Check, AI Processing, Saving) */}
+      {(step === 'quality_check' || step === 'ai_processing' || step === 'saving') && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#0D9488" />
           <Text style={styles.loadingValText}>{loadingText}</Text>
-          <Text style={styles.loadingSubValText}>Mohon tunggu sebentar, data diproses secara lokal.</Text>
+          <Text style={styles.loadingSubValText}>Memproses data pemeriksaan secara lokal.</Text>
         </View>
       )}
 
-      {/* 3. CLINICAL FORM STEP */}
+      {/* 3. 7 CLINICAL FORM STEP (Always displayed for TBMs) */}
       {step === 'form' && (
         <View style={styles.formContainer}>
           <View style={styles.formHeader}>
-            <Text style={styles.formTitle}>Hasil Deteksi Awal</Text>
-            <View style={styles.formBadge}>
-              <Text style={styles.formBadgeText}>🔴 Terindikasi Anemia</Text>
-            </View>
+            <Text style={styles.formTitle}>Parameter Gejala Klinis</Text>
+            <TouchableOpacity onPress={resetScreen} style={styles.closeBtn}>
+              <X size={20} color="#475569" />
+            </TouchableOpacity>
           </View>
           
           <ScrollView contentContainerStyle={styles.formScroll}>
             <Text style={styles.formIntro}>
-              Foto konjungtiva terindikasi anemia. Silakan isi kuesioner gejala klinis berikut untuk triase tingkat keparahan:
+              Isi data klinis berikut untuk memproses analisis model terintegrasi (CNN + MLP):
             </Text>
 
             {/* 1. Usia */}
-            <Text style={styles.inputLabel}>1. Usia (Tahun)</Text>
+            <Text style={styles.inputLabel}>1. Usia Siswi (Tahun)</Text>
             <TextInput
               style={styles.textInput}
               placeholder="Masukkan usia (contoh: 16)"
@@ -415,84 +471,156 @@ export default function CameraScreen() {
             </View>
 
             <TouchableOpacity style={styles.formSubmitBtn} onPress={submitClinicalForm}>
-              <Text style={styles.formSubmitBtnText}>Kirim & Analisis Keparahan</Text>
+              <Text style={styles.formSubmitBtnText}>Proses Hasil AI</Text>
               <ChevronRight size={20} color="#FFF" />
             </TouchableOpacity>
           </ScrollView>
         </View>
       )}
 
-      {/* 4. RESULT STEP */}
-      {step === 'result' && finalResult && (
-        <ScrollView style={styles.resultContainer} contentContainerStyle={styles.resultScroll}>
-          <Text style={styles.resultMainTitle}>Hasil Analisis Kesehatan</Text>
-
-          {/* Icon Badge Indicator */}
-          <View style={styles.resultBadgeCenter}>
-            {finalResult.result === 'No Anemia' ? (
-              <View style={[styles.resultBadgeCircle, { backgroundColor: '#ECFDF5' }]}>
-                <CheckCircle size={60} color="#10B981" />
-              </View>
-            ) : (
-              <View style={[styles.resultBadgeCircle, { backgroundColor: '#FEF2F2' }]}>
-                <ShieldAlert size={60} color={finalResult.color === 'red' ? '#EF4444' : '#F97316'} />
-              </View>
-            )}
-            
-            <Text style={styles.resultStateLabel}>Diagnosis Akhir:</Text>
-            <Text style={[styles.resultStateValue, { color: finalResult.color === 'green' ? '#10B981' : finalResult.color === 'yellow' ? '#D97706' : finalResult.color === 'orange' ? '#EA580C' : '#DC2626' }]}>
-              {finalResult.result === 'No Anemia' ? 'Negatif (Sehat)' : `Anemia Tingkat ${finalResult.result}`}
-            </Text>
-            
-            <Text style={styles.resultConfidence}>
-              Tingkat Keyakinan Model: {finalResult.confidence}%
-            </Text>
-          </View>
-
-          {/* Details Card */}
-          <View style={styles.resultDetailsCard}>
-            <Text style={styles.detailsCardHeader}>Ringkasan Skrining</Text>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailName}>Hasil Konjungtiva (CNN)</Text>
-              <Text style={styles.detailVal}>
-                {cnnResult.isAnemic ? '🔴 Terindikasi Anemia' : '🟢 Sehat'}
-              </Text>
-            </View>
-            {cnnResult.isAnemic && (
-              <>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailName}>Usia Anda</Text>
-                  <Text style={styles.detailVal}>{age} Tahun</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailName}>Skor Risiko MLP</Text>
-                  <Text style={styles.detailVal}>{finalResult.riskScore} poin</Text>
-                </View>
-              </>
-            )}
-          </View>
-
-          {/* Action Recommendations */}
-          <View style={[styles.resultRecommBox, { borderColor: finalResult.color === 'green' ? '#10B981' : finalResult.color === 'red' ? '#EF4444' : '#F97316' }]}>
-            <View style={styles.recommHeaderRow}>
-              <HelpCircle size={18} color="#0D9488" style={{ marginRight: 6 }} />
-              <Text style={styles.recommBoxTitle}>Rekomendasi Tindakan</Text>
-            </View>
-            <Text style={styles.recommBoxText}>{finalResult.recommendation}</Text>
-          </View>
-
-          {/* Action Buttons */}
-          <View style={styles.resultActionRow}>
-            <TouchableOpacity style={styles.saveBtn} onPress={saveAndExit}>
-              <Text style={styles.saveBtnText}>Simpan Skrining</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.retryScanBtn} onPress={resetScreen}>
-              <RefreshCw size={16} color="#64748B" style={{ marginRight: 6 }} />
-              <Text style={styles.retryScanBtnText}>Skrining Ulang</Text>
+      {/* 4. TBM LAB VERIFICATION STEP */}
+      {step === 'verification' && aiResult && (
+        <View style={styles.formContainer}>
+          <View style={styles.formHeader}>
+            <Text style={styles.formTitle}>Verifikasi Diagnostik TBM</Text>
+            <TouchableOpacity onPress={resetScreen} style={styles.closeBtn}>
+              <X size={20} color="#475569" />
             </TouchableOpacity>
           </View>
-        </ScrollView>
+          
+          <ScrollView contentContainerStyle={styles.formScroll}>
+            {/* AI combined result display */}
+            <View style={styles.aiResultCard}>
+              <Text style={styles.aiCardTitle}>Hasil Diagnosis Model AI:</Text>
+              <View style={styles.aiResultRow}>
+                <Text style={[styles.aiResultVal, { color: aiResult.result === 'No Anemia' ? '#10B981' : aiResult.result === 'Ringan' ? '#F59E0B' : aiResult.result === 'Sedang' ? '#F97316' : '#EF4444' }]}>
+                  {aiResult.result === 'No Anemia' ? 'No Anemia (Negatif)' : `Anemia: ${aiResult.result}`}
+                </Text>
+                <Text style={styles.aiResultConfidence}>Keyakinan: {aiResult.confidence}%</Text>
+              </View>
+            </View>
+
+            {/* Session Selector */}
+            <Text style={styles.inputLabel}>Pilih Sesi Skrining:</Text>
+            <View style={styles.segmentedRow}>
+              {['Sesi 1', 'Sesi 2', 'Sesi 3', 'Sesi 4'].map(option => (
+                <TouchableOpacity
+                  key={option}
+                  style={[styles.segmentBtn, session === option && styles.segmentBtnActive]}
+                  onPress={() => setSession(option)}
+                >
+                  <Text style={[styles.segmentText, session === option && styles.segmentTextActive]}>
+                    {option}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Hb Value Input */}
+            <Text style={styles.inputLabel}>Masukkan Hasil Hb Laboratorium (g/dL):</Text>
+            <View style={styles.hbInputRow}>
+              <TextInput
+                style={styles.hbInput}
+                placeholder="Contoh: 11.5"
+                placeholderTextColor="#94A3B8"
+                keyboardType="numeric"
+                value={hbValue}
+                onChangeText={setHbValue}
+              />
+              <Text style={styles.hbUnit}>g/dL</Text>
+            </View>
+
+            {/* Date Input */}
+            <Text style={styles.inputLabel}>Tanggal Pemeriksaan (DD/MM/YYYY):</Text>
+            <View style={styles.dateInputRow}>
+              <Calendar size={18} color="#0D9488" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.dateTextInput}
+                placeholder="Format: DD/MM/YYYY"
+                placeholderTextColor="#94A3B8"
+                value={checkDate}
+                onChangeText={setCheckDate}
+              />
+            </View>
+
+            {/* AI Verification Match Toggle */}
+            <Text style={styles.inputLabel}>Validasi Kecocokan AI vs Lab:</Text>
+            <View style={styles.verificationMatchRow}>
+              <TouchableOpacity 
+                style={[styles.matchOptionBtn, isConsistent && styles.matchOptionBtnActive]}
+                onPress={() => setIsConsistent(true)}
+              >
+                <Check size={18} color={isConsistent ? '#FFF' : '#64748B'} style={{ marginRight: 6 }} />
+                <Text style={[styles.matchOptionText, isConsistent && styles.matchOptionTextActive]}>Sesuai AI</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.matchOptionBtn, !isConsistent && styles.matchOptionBtnActiveError]}
+                onPress={() => setIsConsistent(false)}
+              >
+                <AlertTriangle size={18} color={!isConsistent ? '#FFF' : '#64748B'} style={{ marginRight: 6 }} />
+                <Text style={[styles.matchOptionText, !isConsistent && styles.matchOptionTextActive]}>Tidak Sesuai</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Override Selection (Shows only if Consistent is False) */}
+            {!isConsistent && (
+              <View style={styles.overrideCard}>
+                <Text style={styles.overrideTitle}>Tentukan Kategori Akhir (TBM Override):</Text>
+                <View style={styles.overrideGrid}>
+                  {[
+                    { id: 'No Anemia', label: 'No Anemia', color: '#10B981' },
+                    { id: 'Ringan', label: 'Ringan', color: '#F59E0B' },
+                    { id: 'Sedang', label: 'Sedang', color: '#F97316' },
+                    { id: 'Berat', label: 'Berat', color: '#EF4444' }
+                  ].map(cat => (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={[
+                        styles.overrideBtn, 
+                        tbmOverrideResult === cat.id && { backgroundColor: cat.color, borderColor: cat.color }
+                      ]}
+                      onPress={() => setTbmOverrideResult(cat.id)}
+                    >
+                      <Text style={[
+                        styles.overrideBtnText, 
+                        tbmOverrideResult === cat.id && { color: '#FFF', fontWeight: 'bold' }
+                      ]}>
+                        {cat.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            <TouchableOpacity style={styles.submitBtn} onPress={saveVerificationResult}>
+              <Text style={styles.submitBtnText}>Simpan Pemeriksaan & Hasil Lab</Text>
+              <ChevronRight size={20} color="#FFF" />
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      )}
+
+      {/* 5. SUCCESS STEP */}
+      {step === 'result' && (
+        <View style={styles.successContainer}>
+          <View style={styles.successCircle}>
+            <CheckCircle size={70} color="#10B981" />
+          </View>
+          <Text style={styles.successTitle}>Pemeriksaan Berhasil Disimpan</Text>
+          <Text style={styles.successDesc}>
+            Hasil pemeriksaan mata, 7 parameter klinis, dan kadar hemoglobin laboratorium untuk {session} ({checkDate}) telah berhasil disimpan ke database lokal.
+          </Text>
+
+          <TouchableOpacity style={styles.successCtaBtn} onPress={resetScreen}>
+            <Text style={styles.successCtaBtnText}>Skrining Baru</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.successBackBtn} onPress={() => router.replace('/(tbms)/riwayat')}>
+            <Text style={styles.successBackBtnText}>Lihat Riwayat Skrining</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       {/* Photo Quality Failure Modal */}
@@ -748,20 +876,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   formTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#0F172A',
   },
-  formBadge: {
-    backgroundColor: '#FEE2E2',
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-  },
-  formBadgeText: {
-    color: '#EF4444',
-    fontSize: 11,
-    fontWeight: 'bold',
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   formScroll: {
     padding: 20,
@@ -774,10 +899,10 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
-    color: '#0F172A',
-    marginTop: 18,
+    color: '#334155',
+    marginTop: 16,
     marginBottom: 8,
   },
   subInputLabel: {
@@ -789,256 +914,325 @@ const styles = StyleSheet.create({
   },
   textInput: {
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: '#CBD5E1',
     borderRadius: 12,
     height: 48,
     paddingHorizontal: 14,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     color: '#0F172A',
     fontSize: 14,
   },
   segmentedRow: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#E2E8F0',
     borderRadius: 12,
     padding: 3,
-    marginBottom: 10,
-    marginTop: 4,
+    marginBottom: 8,
   },
   segmentBtn: {
     flex: 1,
     paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: 9,
   },
   segmentBtnActive: {
     backgroundColor: '#0D9488',
-    shadowColor: '#0D9488',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
   segmentText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#475569',
   },
   segmentTextActive: {
     color: '#FFFFFF',
+    fontWeight: 'bold',
   },
   symptomsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 6,
+    marginBottom: 10,
   },
   chip: {
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 99,
     paddingVertical: 8,
     paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
     marginRight: 8,
     marginBottom: 8,
   },
   chipActive: {
-    backgroundColor: '#0D9488',
+    backgroundColor: '#F0FDFA',
     borderColor: '#0D9488',
   },
   chipText: {
     fontSize: 12.5,
-    fontWeight: '600',
     color: '#475569',
+    fontWeight: '600',
   },
   chipTextActive: {
-    color: '#FFFFFF',
+    color: '#0D9488',
+    fontWeight: 'bold',
   },
   formSubmitBtn: {
     flexDirection: 'row',
     backgroundColor: '#0D9488',
-    borderRadius: 16,
-    height: 52,
+    height: 50,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 32,
+    marginTop: 24,
     shadowColor: '#0D9488',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 3,
   },
   formSubmitBtnText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: 'bold',
     marginRight: 6,
   },
-  resultContainer: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  resultScroll: {
-    padding: 24,
-    paddingBottom: 50,
-  },
-  resultMainTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#0F172A',
-    marginTop: 36,
-    textAlign: 'center',
-  },
-  resultBadgeCenter: {
-    alignItems: 'center',
-    marginVertical: 24,
-  },
-  resultBadgeCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  resultStateLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-    textTransform: 'uppercase',
-  },
-  resultStateValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginTop: 4,
-  },
-  resultConfidence: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 6,
-    fontWeight: '600',
-  },
-  resultDetailsCard: {
+  aiResultCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 18,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  detailsCardHeader: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
+  aiCardTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#64748B',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 12,
+    marginBottom: 6,
   },
-  detailRow: {
+  aiResultRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    alignItems: 'center',
   },
-  detailName: {
-    fontSize: 13,
+  aiResultVal: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  aiResultConfidence: {
+    fontSize: 12,
     color: '#64748B',
+    fontWeight: '600',
   },
-  detailVal: {
-    fontSize: 13,
+  hbInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    backgroundColor: '#FFFFFF',
+    height: 48,
+    marginBottom: 8,
+  },
+  hbInput: {
+    flex: 1,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#0F172A',
   },
-  resultRecommBox: {
-    backgroundColor: '#F0FDFA',
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1.5,
-    marginBottom: 32,
+  hbUnit: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#64748B',
   },
-  recommHeaderRow: {
+  dateInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    backgroundColor: '#FFFFFF',
+    height: 48,
     marginBottom: 8,
   },
-  recommBoxTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0F766E',
-    textTransform: 'uppercase',
+  dateTextInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F172A',
   },
-  recommBoxText: {
-    fontSize: 13,
-    color: '#115E59',
-    lineHeight: 19,
+  verificationMatchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
-  resultActionRow: {
+  matchOptionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    height: 48,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 4,
+    backgroundColor: '#FFFFFF',
   },
-  saveBtn: {
-    backgroundColor: '#0D9488',
-    width: '100%',
-    height: 52,
+  matchOptionBtnActive: {
+    backgroundColor: '#10B981',
+    borderColor: '#10B981',
+  },
+  matchOptionBtnActiveError: {
+    backgroundColor: '#EF4444',
+    borderColor: '#EF4444',
+  },
+  matchOptionText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#475569',
+  },
+  matchOptionTextActive: {
+    color: '#FFFFFF',
+  },
+  overrideCard: {
+    backgroundColor: '#F8FAFC',
     borderRadius: 16,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    marginVertical: 14,
+  },
+  overrideTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 10,
+  },
+  overrideGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  overrideBtn: {
+    width: '48%',
+    height: 42,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  overrideBtnText: {
+    fontSize: 12,
+    color: '#475569',
+    fontWeight: '600',
+  },
+  submitBtn: {
+    flexDirection: 'row',
+    backgroundColor: '#0D9488',
+    height: 50,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 24,
     shadowColor: '#0D9488',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 3,
   },
-  saveBtnText: {
+  submitBtnText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
+    marginRight: 6,
   },
-  retryScanBtn: {
-    flexDirection: 'row',
+  successContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+    backgroundColor: '#FFFFFF',
+  },
+  successCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#ECFDF5',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
-    paddingVertical: 10,
-    width: '100%',
+    marginBottom: 24,
   },
-  retryScanBtnText: {
-    fontSize: 14,
+  successTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  successDesc: {
+    fontSize: 13.5,
     color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 32,
+  },
+  successCtaBtn: {
+    backgroundColor: '#0D9488',
+    height: 48,
+    borderRadius: 12,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  successCtaBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  successBackBtn: {
+    height: 48,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successBackBtnText: {
+    color: '#64748B',
+    fontSize: 14,
     fontWeight: '600',
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
   },
   errorModal: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: 24,
+    width: width - 48,
     alignItems: 'center',
-    width: '100%',
-    maxWidth: 320,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.1,
     shadowRadius: 20,
     elevation: 10,
   },
   errorModalTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#0F172A',
-    marginBottom: 8,
+    marginBottom: 10,
     textAlign: 'center',
   },
   errorModalDesc: {
-    fontSize: 13,
+    fontSize: 13.5,
     color: '#64748B',
     textAlign: 'center',
     lineHeight: 18,
@@ -1046,11 +1240,10 @@ const styles = StyleSheet.create({
   },
   errorModalBtn: {
     backgroundColor: '#EF4444',
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingVertical: 12,
     width: '100%',
+    borderRadius: 12,
+    alignItems: 'center',
   },
   errorModalBtnText: {
     color: '#FFFFFF',

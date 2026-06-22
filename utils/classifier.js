@@ -31,8 +31,8 @@ export async function verifyImageQuality(imageUri) {
 export async function runPhase1CNN(imageUri) {
   return new Promise((resolve) => {
     setTimeout(() => {
-      // Return a simulated result: 65% chance of positive anemia to let users test Phase 2 clinical form
-      const isAnemic = Math.random() < 0.65;
+      // Always return true for demonstration to trigger the 7 input form
+      const isAnemic = true;
       const confidence = parseFloat((80 + Math.random() * 18).toFixed(1)); // 80% - 98%
       
       resolve({

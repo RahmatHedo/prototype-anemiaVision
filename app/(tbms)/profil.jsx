@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { useAuth } from '../_layout';
 import { getHbInputs, syncOfflineData, clearAllData } from '../../utils/storage';
-import { User, Cloud, RefreshCw, LogOut, HardDrive, ShieldCheck, Wifi, WifiOff, Beaker } from 'lucide-react-native';
+import { User, Cloud, RefreshCw, LogOut, HardDrive, ShieldCheck, Beaker } from 'lucide-react-native';
 
 export default function TbmProfilScreen() {
   const { user, logout } = useAuth();
@@ -11,9 +11,6 @@ export default function TbmProfilScreen() {
   const [localCount, setLocalCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [syncing, setSyncing] = useState(false);
-  
-  // Connection simulator state
-  const [isOnline, setIsOnline] = useState(true);
 
   const loadStats = async () => {
     const data = await getHbInputs();
@@ -29,11 +26,6 @@ export default function TbmProfilScreen() {
   }, []);
 
   const handleSync = async () => {
-    if (!isOnline) {
-      Alert.alert('Offline', 'Koneksi internet terputus. Silakan aktifkan simulator koneksi internet.');
-      return;
-    }
-
     if (pendingCount === 0) {
       Alert.alert('Info', 'Semua data Hb lokal sudah tersinkronisasi.');
       return;
@@ -65,27 +57,7 @@ export default function TbmProfilScreen() {
         <Text style={styles.profileSchool}>Laboratorium Cabang Jakarta</Text>
       </View>
 
-      {/* Network Simulator Switcher */}
-      <Text style={styles.sectionTitle}>Simulator Jaringan HP</Text>
-      <View style={styles.syncCard}>
-        <View style={styles.syncRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {isOnline ? <Wifi size={20} color="#10B981" /> : <WifiOff size={20} color="#EF4444" />}
-            <View style={{ marginLeft: 12 }}>
-              <Text style={styles.syncLabel}>Status Koneksi Internet</Text>
-              <Text style={[styles.syncSubLabel, { color: isOnline ? '#10B981' : '#EF4444', fontWeight: 'bold' }]}>
-                {isOnline ? 'Online (Auto-Sync Aktif)' : 'Offline (Data Disimpan di HP)'}
-              </Text>
-            </View>
-          </View>
-          <Switch
-            value={isOnline}
-            onValueChange={setIsOnline}
-            trackColor={{ false: '#FDA4AF', true: '#A7F3D0' }}
-            thumbColor={isOnline ? '#10B981' : '#EF4444'}
-          />
-        </View>
-      </View>
+      {/* Network connection is mandated online */}
 
       {/* Offline Storage Status widget */}
       <Text style={styles.sectionTitle}>Penyimpanan Lab & Sinkronisasi</Text>

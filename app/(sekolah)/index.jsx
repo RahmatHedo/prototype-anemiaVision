@@ -45,21 +45,32 @@ export default function SekolahDashboardScreen() {
         { name: 'Berat', population: berat, color: '#EF4444', legendFontColor: '#475569', legendFontSize: 12 }
       ]);
 
-      // Bar chart comparing sessions (Baseline vs Monitoring vs Evaluasi)
-      // We calculate from historical data dates (Oct 2023 vs Jun 2026)
-      const oct23Count = data.filter(item => item.date === '15/10/2023').length;
-      const oct23Anemia = data.filter(item => item.date === '15/10/2023' && item.result !== 'No Anemia').length;
-      const oct23Rate = oct23Count > 0 ? Math.round((oct23Anemia / oct23Count) * 100) : 60;
+      // Bar chart comparing sessions (Sesi 1, 2, 3, 4)
+      const s1Data = data.filter(item => item.session === 'Sesi 1');
+      const s1Total = s1Data.length;
+      const s1Anemia = s1Data.filter(item => (item.tbmResult || item.result) !== 'No Anemia').length;
+      const s1Rate = s1Total > 0 ? Math.round((s1Anemia / s1Total) * 100) : 58;
 
-      const jun26Count = data.filter(item => item.date !== '15/10/2023').length;
-      const jun26Anemia = data.filter(item => item.date !== '15/10/2023' && item.result !== 'No Anemia').length;
-      const jun26Rate = jun26Count > 0 ? Math.round((jun26Anemia / jun26Count) * 100) : 40;
+      const s2Data = data.filter(item => item.session === 'Sesi 2');
+      const s2Total = s2Data.length;
+      const s2Anemia = s2Data.filter(item => (item.tbmResult || item.result) !== 'No Anemia').length;
+      const s2Rate = s2Total > 0 ? Math.round((s2Anemia / s2Total) * 100) : 50;
+
+      const s3Data = data.filter(item => item.session === 'Sesi 3');
+      const s3Total = s3Data.length;
+      const s3Anemia = s3Data.filter(item => (item.tbmResult || item.result) !== 'No Anemia').length;
+      const s3Rate = s3Total > 0 ? Math.round((s3Anemia / s3Total) * 100) : 42;
+
+      const s4Data = data.filter(item => item.session === 'Sesi 4');
+      const s4Total = s4Data.length;
+      const s4Anemia = s4Data.filter(item => (item.tbmResult || item.result) !== 'No Anemia').length;
+      const s4Rate = s4Total > 0 ? Math.round((s4Anemia / s4Total) * 100) : 0;
 
       setBarData({
-        labels: ['Baseline (Okt 23)', 'Monitoring (Jun 26)', 'Target UKS'],
+        labels: ['Sesi 1', 'Sesi 2', 'Sesi 3', 'Sesi 4'],
         datasets: [
           {
-            data: [oct23Rate, jun26Rate, 10] // % Anemia rate per session
+            data: [s1Rate, s2Rate, s3Rate, s4Rate] // % Anemia rate per session
           }
         ]
       });
@@ -104,7 +115,7 @@ export default function SekolahDashboardScreen() {
           <Text style={styles.logoText}>Dashboard Sekolah</Text>
         </View>
         <Text style={styles.headerTitle}>AnemiaVision Monitor</Text>
-        <Text style={styles.headerSubtitle}>SMAN 1 Jakarta | Sesi Jun 2026</Text>
+        <Text style={styles.headerSubtitle}>SMPN X Palembang | Sesi Jun 2026</Text>
       </View>
 
       {/* KPI Cards Row */}

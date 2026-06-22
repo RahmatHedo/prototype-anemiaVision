@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { View, ActivityIndicator } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // 1. Auth Context Creation
 const AuthContext = createContext({
@@ -25,9 +26,9 @@ export default function RootLayout() {
 
   const login = (username, role) => {
     setUser({
-      name: username || 'Kader AnemiaVision',
+      name: role === 'kader' ? 'Maya' : (username || 'Kader AnemiaVision'),
       role: role || 'kader', // 'kader', 'tbms', 'sekolah', 'admin'
-      school: 'SMA Negeri 1 Jakarta'
+      school: 'SMPN X Palembang'
     });
   };
 
@@ -36,9 +37,11 @@ export default function RootLayout() {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
-      <RootLayoutNav />
-    </AuthContext.Provider>
+    <SafeAreaProvider>
+      <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+        <RootLayoutNav />
+      </AuthContext.Provider>
+    </SafeAreaProvider>
   );
 }
 
@@ -54,15 +57,17 @@ function RootLayoutNav() {
 
     const inAuthGroup = segments[0] === '(kader)' || segments[0] === '(tbms)' || segments[0] === '(sekolah)';
     const onLoginPage = segments[0] === 'login';
+    const onWelcomePage = !segments[0] || segments[0] === 'index';
 
     if (!user) {
-      // Redirect to login if not authenticated and trying to access app screens
-      if (inAuthGroup || !onLoginPage) {
+      // Redirect to login if not authenticated and trying to access app screens (auth group)
+      // or other screens that are not login and not welcome page
+      if (inAuthGroup || (!onLoginPage && !onWelcomePage)) {
         router.replace('/login');
       }
     } else {
       // Redirect authenticated user to their role-specific layout if they try to access login or base route
-      if (onLoginPage || !segments[0]) {
+      if (onLoginPage || onWelcomePage) {
         const role = user.role;
         if (role === 'kader') {
           router.replace('/(kader)');

@@ -1,15 +1,28 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { StyleSheet, Platform } from 'react-native';
-import { PlusCircle, Clock, User } from 'lucide-react-native';
+import { LayoutDashboard, Camera, Clock, User } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TBMsLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: '#0D9488',
         tabBarInactiveTintColor: '#94A3B8',
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [
+          styles.tabBar,
+          {
+            height: Platform.OS === 'ios' 
+              ? (insets.bottom > 0 ? 64 + insets.bottom : 76) 
+              : (insets.bottom > 0 ? 64 + insets.bottom : 72),
+            paddingBottom: Platform.OS === 'ios'
+              ? (insets.bottom > 0 ? insets.bottom - 4 : 12)
+              : (insets.bottom > 0 ? insets.bottom : 12),
+          }
+        ],
         tabBarLabelStyle: styles.tabBarLabel,
         headerShown: false,
       }}
@@ -17,15 +30,23 @@ export default function TBMsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Input Hb',
-          tabBarIcon: ({ color }) => <PlusCircle size={22} color={color} />,
+          title: 'Dashboard',
+          tabBarIcon: ({ color }) => <LayoutDashboard size={22} color={color} />,
+        }}
+      />
+      
+      <Tabs.Screen
+        name="camera"
+        options={{
+          title: 'Cek Mata',
+          tabBarIcon: ({ color }) => <Camera size={22} color={color} />,
         }}
       />
       
       <Tabs.Screen
         name="riwayat"
         options={{
-          title: 'Riwayat Hb',
+          title: 'Riwayat',
           tabBarIcon: ({ color }) => <Clock size={22} color={color} />,
         }}
       />
@@ -43,9 +64,7 @@ export default function TBMsLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    height: Platform.OS === 'ios' ? 90 : 72,
-    paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+    paddingTop: 8,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1.5,
     borderColor: '#E2E8F0',

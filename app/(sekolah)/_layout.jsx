@@ -3,17 +3,29 @@ import { Tabs } from 'expo-router';
 import { StyleSheet, Platform } from 'react-native';
 import { LayoutDashboard, Users, AlertTriangle, Settings, User } from 'lucide-react-native';
 import { useAuth } from '../_layout';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function SekolahLayout() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: '#0D9488',
         tabBarInactiveTintColor: '#94A3B8',
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [
+          styles.tabBar,
+          {
+            height: Platform.OS === 'ios' 
+              ? (insets.bottom > 0 ? 64 + insets.bottom : 76) 
+              : (insets.bottom > 0 ? 64 + insets.bottom : 72),
+            paddingBottom: Platform.OS === 'ios'
+              ? (insets.bottom > 0 ? insets.bottom - 4 : 12)
+              : (insets.bottom > 0 ? insets.bottom : 12),
+          }
+        ],
         tabBarLabelStyle: styles.tabBarLabel,
         headerShown: false,
       }}
@@ -65,9 +77,7 @@ export default function SekolahLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    height: Platform.OS === 'ios' ? 90 : 72,
-    paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+    paddingTop: 8,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1.5,
     borderColor: '#E2E8F0',

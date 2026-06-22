@@ -175,7 +175,7 @@ export default function AdminPanelScreen() {
         <View style={styles.userRow}>
           <View>
             <Text style={styles.userCountText}>12 Kader Terdaftar</Text>
-            <Text style={styles.userSubText}>Sekolah SMAN 1 Jakarta</Text>
+            <Text style={styles.userSubText}>Sekolah SMPN X Palembang</Text>
           </View>
           <TouchableOpacity style={styles.addUserBtn} onPress={() => setAddUserModal(true)}>
             <UserPlus size={16} color="#0D9488" style={{ marginRight: 6 }} />

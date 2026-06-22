@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, Modal, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, Modal, ScrollView, Dimensions, Platform, StatusBar } from 'react-native';
 import { getScreenings } from '../../utils/storage';
 import { Search, Eye, ChevronRight, Cloud, CloudOff, Calendar, Layers, Activity, X, Info } from 'lucide-react-native';
 
@@ -22,8 +22,10 @@ export default function RiwayatScreen() {
 
   const loadData = async () => {
     const data = await getScreenings();
-    setScreenings(data);
-    applyFilters(data, search, filterDate, filterSession, filterResult);
+    // Filter only Maya's screenings
+    const filteredMaya = data.filter(item => item.id.startsWith('AV-0012'));
+    setScreenings(filteredMaya);
+    applyFilters(filteredMaya, search, filterDate, filterSession, filterResult);
   };
 
   useEffect(() => {
@@ -35,10 +37,12 @@ export default function RiwayatScreen() {
   const applyFilters = (data, query, dateVal, sessionVal, resultVal) => {
     let filtered = [...data];
 
-    // Search Query
+    // Search Query (ID, Result, or Date)
     if (query) {
       filtered = filtered.filter(item => 
-        item.id.toLowerCase().includes(query.toLowerCase())
+        item.id.toLowerCase().includes(query.toLowerCase()) ||
+        item.result.toLowerCase().includes(query.toLowerCase()) ||
+        item.date.includes(query)
       );
     }
 
@@ -119,8 +123,8 @@ export default function RiwayatScreen() {
           <Activity size={24} color="#0D9488" strokeWidth={2.5} />
           <Text style={styles.logoText}>AnemiaVision</Text>
         </View>
-        <Text style={styles.headerTitle}>Halo, Kak Kader!</Text>
-        <Text style={styles.headerSubtitle}>Daftar Riwayat Skrining Siswi</Text>
+        <Text style={styles.headerTitle}>Halo, Maya!</Text>
+        <Text style={styles.headerSubtitle}>Riwayat Skrining Kesehatan Saya</Text>
       </View>
 
       {/* Search Input */}
@@ -129,7 +133,7 @@ export default function RiwayatScreen() {
           <Search size={18} color="#94A3B8" style={{ marginRight: 8 }} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Cari ID Anonim..."
+            placeholder="Cari riwayat pemeriksaan..."
             placeholderTextColor="#94A3B8"
             value={search}
             onChangeText={handleSearch}
@@ -333,7 +337,7 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#FFFFFF',
-    paddingTop: 54,
+    paddingTop: Platform.OS === 'ios' ? 54 : (StatusBar.currentHeight || 24) + 12,
     paddingBottom: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 1,

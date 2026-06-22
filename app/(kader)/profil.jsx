@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Platform, StatusBar } from 'react-native';
 import { useAuth } from '../_layout';
 import { getScreenings, syncOfflineData, clearAllData } from '../../utils/storage';
-import { User, Cloud, RefreshCw, LogOut, HardDrive, ShieldCheck, Wifi, WifiOff } from 'lucide-react-native';
+import { User, Cloud, RefreshCw, LogOut, HardDrive, ShieldCheck } from 'lucide-react-native';
 
 export default function ProfilScreen() {
   const { user, logout } = useAuth();
@@ -11,14 +11,12 @@ export default function ProfilScreen() {
   const [localCount, setLocalCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [syncing, setSyncing] = useState(false);
-  
-  // Connection simulator state (important for testing)
-  const [isOnline, setIsOnline] = useState(true);
 
   const loadStats = async () => {
     const data = await getScreenings();
-    setLocalCount(data.length);
-    const pending = data.filter(item => item.syncStatus === 'pending').length;
+    const mayaData = data.filter(item => item.id.startsWith('AV-0012'));
+    setLocalCount(mayaData.length);
+    const pending = mayaData.filter(item => item.syncStatus === 'pending').length;
     setPendingCount(pending);
   };
 
@@ -29,11 +27,6 @@ export default function ProfilScreen() {
   }, []);
 
   const handleSync = async () => {
-    if (!isOnline) {
-      Alert.alert('Offline', 'Koneksi internet terputus. Silakan aktifkan simulator koneksi internet terlebih dahulu.');
-      return;
-    }
-
     if (pendingCount === 0) {
       Alert.alert('Info', 'Semua data lokal sudah tersinkronisasi.');
       return;
@@ -81,39 +74,17 @@ export default function ProfilScreen() {
             <User size={36} color="#0D9488" />
           </View>
         </View>
-        <Text style={styles.profileName}>{user?.name || 'Kak Kader'}</Text>
+        <Text style={styles.profileName}>{user?.name || 'Maya'}</Text>
         <View style={styles.roleTag}>
-          <Text style={styles.roleTagText}>Kader Kesehatan Sekolah</Text>
+          <Text style={styles.roleTagText}>Siswi AnemiaVision</Text>
         </View>
-        <Text style={styles.profileSchool}>{user?.school || 'SMAN 1 Jakarta'}</Text>
+        <Text style={styles.profileSchool}>{user?.school || 'SMPN X Palembang'}</Text>
       </View>
 
-      {/* Network Simulator Switcher (Crucial for Demo Offline features) */}
-      <Text style={styles.sectionTitle}>Simulator Jaringan HP</Text>
-      <View style={styles.card}>
-        <View style={styles.syncRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 10 }}>
-            <View style={[styles.networkIconBg, { backgroundColor: isOnline ? '#ECFDF5' : '#FEF2F2' }]}>
-              {isOnline ? <Wifi size={20} color="#10B981" /> : <WifiOff size={20} color="#EF4444" />}
-            </View>
-            <View style={{ marginLeft: 12, flex: 1 }}>
-              <Text style={styles.syncLabel}>Status Koneksi Internet</Text>
-              <Text style={[styles.syncSubLabel, { color: isOnline ? '#10B981' : '#EF4444', fontWeight: '700' }]}>
-                {isOnline ? 'Online (Auto-Sync Aktif)' : 'Offline (Mode Offline HP)'}
-              </Text>
-            </View>
-          </View>
-          <Switch
-            value={isOnline}
-            onValueChange={setIsOnline}
-            trackColor={{ false: '#FDA4AF', true: '#A7F3D0' }}
-            thumbColor={isOnline ? '#10B981' : '#EF4444'}
-          />
-        </View>
-      </View>
+      {/* Network connection is mandated online */}
 
       {/* Offline Storage Status widget */}
-      <Text style={styles.sectionTitle}>Penyimpanan & Sinkronisasi</Text>
+      <Text style={styles.sectionTitle}>Penyimpanan Riwayat Pemeriksaan</Text>
       <View style={styles.card}>
         {/* Stat 1: local count */}
         <View style={styles.storageRow}>
@@ -121,9 +92,9 @@ export default function ProfilScreen() {
             <View style={[styles.statIconBg, { backgroundColor: '#F8FAFC' }]}>
               <HardDrive size={18} color="#64748B" />
             </View>
-            <Text style={styles.storageLabel}>Total Skrining Lokal</Text>
+            <Text style={styles.storageLabel}>Total Riwayat Skrining Saya</Text>
           </View>
-          <Text style={styles.storageVal}>{localCount} Siswi</Text>
+          <Text style={styles.storageVal}>{localCount} Kali</Text>
         </View>
 
         {/* Stat 2: pending sync queue */}
@@ -132,10 +103,10 @@ export default function ProfilScreen() {
             <View style={[styles.statIconBg, { backgroundColor: pendingCount > 0 ? '#FEF3C7' : '#F8FAFC' }]}>
               <Cloud size={18} color={pendingCount > 0 ? '#D97706' : '#64748B'} />
             </View>
-            <Text style={styles.storageLabel}>Antrean Belum Terunggah</Text>
+            <Text style={styles.storageLabel}>Antrean Sinkronisasi Lokal</Text>
           </View>
           <Text style={[styles.storageVal, { color: pendingCount > 0 ? '#D97706' : '#64748B', fontWeight: '700' }]}>
-            {pendingCount} Siswi
+            {pendingCount} Antrean
           </Text>
         </View>
 
@@ -185,6 +156,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
   },
   scrollContent: {
+    paddingTop: Platform.OS === 'ios' ? 24 : (StatusBar.currentHeight || 24),
     paddingBottom: 40,
   },
   profileHeaderCard: {

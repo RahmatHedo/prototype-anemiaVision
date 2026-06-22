@@ -12,27 +12,36 @@ const SEED_SCREENINGS = [
     id: 'AV-0012',
     time: '10:15 WIB',
     date: '21/06/2026',
-    result: 'Ringan', // Anemia: Ringan
-    syncStatus: 'synced', // Tersinkronisasi
+    result: 'Ringan',
+    syncStatus: 'synced',
     confidence: 84.5,
+    session: 'Sesi 3',
+    tbmResult: 'Ringan',
+    isConsistent: true,
     answers: { q1: 'Ya', q2: 'Ya', q3: 'Tidak', q4: 'Tidak', q5: 'Ya', q6: 'Tidak', q7: 'Tidak' }
   },
   {
     id: 'AV-0011',
     time: '10:05 WIB',
     date: '21/06/2026',
-    result: 'No Anemia', // No Anemia
-    syncStatus: 'synced', // Tersinkronisasi
+    result: 'No Anemia',
+    syncStatus: 'synced',
     confidence: 91.2,
+    session: 'Sesi 3',
+    tbmResult: 'No Anemia',
+    isConsistent: true,
     answers: {}
   },
   {
     id: 'AV-0010',
     time: '09:55 WIB',
     date: '21/06/2026',
-    result: 'Sedang', // Anemia: Sedang
-    syncStatus: 'pending', // Pending
+    result: 'Sedang',
+    syncStatus: 'pending',
     confidence: 76.8,
+    session: 'Sesi 3',
+    tbmResult: 'Sedang',
+    isConsistent: true,
     answers: { q1: 'Ya', q2: 'Ya', q3: 'Ya', q4: 'Tidak', q5: 'Ya', q6: 'Ya', q7: 'Tidak' }
   },
   {
@@ -42,6 +51,9 @@ const SEED_SCREENINGS = [
     result: 'No Anemia',
     syncStatus: 'synced',
     confidence: 89.0,
+    session: 'Sesi 1',
+    tbmResult: 'No Anemia',
+    isConsistent: true,
     answers: {}
   },
   {
@@ -51,6 +63,9 @@ const SEED_SCREENINGS = [
     result: 'Sedang',
     syncStatus: 'synced',
     confidence: 72.1,
+    session: 'Sesi 1',
+    tbmResult: 'Sedang',
+    isConsistent: true,
     answers: { q1: 'Ya', q2: 'Tidak', q3: 'Ya', q4: 'Ya', q5: 'Ya', q6: 'Tidak', q7: 'Tidak' }
   },
   {
@@ -60,7 +75,49 @@ const SEED_SCREENINGS = [
     result: 'Berat',
     syncStatus: 'pending',
     confidence: 88.4,
+    session: 'Sesi 1',
+    tbmResult: 'Berat',
+    isConsistent: true,
     answers: { q1: 'Ya', q2: 'Ya', q3: 'Ya', q4: 'Ya', q5: 'Ya', q6: 'Ya', q7: 'Ya' }
+  },
+  {
+    id: 'AV-0006',
+    time: '11:00 WIB',
+    date: '12/04/2024',
+    result: 'Ringan',
+    syncStatus: 'synced',
+    confidence: 81.2,
+    session: 'Sesi 2',
+    tbmResult: 'Ringan',
+    isConsistent: true,
+    hbValue: 11.5,
+    answers: {}
+  },
+  {
+    id: 'AV-0005',
+    time: '10:30 WIB',
+    date: '12/04/2024',
+    result: 'Ringan',
+    syncStatus: 'synced',
+    confidence: 79.5,
+    session: 'Sesi 2',
+    tbmResult: 'Sedang',
+    isConsistent: false,
+    hbValue: 10.2,
+    answers: {}
+  },
+  {
+    id: 'AV-0004',
+    time: '09:20 WIB',
+    date: '18/10/2026',
+    result: 'No Anemia',
+    syncStatus: 'synced',
+    confidence: 93.0,
+    session: 'Sesi 4',
+    tbmResult: 'No Anemia',
+    isConsistent: true,
+    hbValue: 13.8,
+    answers: {}
   }
 ];
 
@@ -110,6 +167,9 @@ export async function saveScreening(screeningData) {
       time: formattedTime,
       date: formattedDate,
       syncStatus: 'pending', // offline-first
+      session: 'Sesi 3',
+      tbmResult: null,
+      isConsistent: true,
       ...screeningData
     };
 

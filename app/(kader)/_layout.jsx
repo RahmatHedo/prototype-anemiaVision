@@ -3,9 +3,11 @@ import { Tabs } from 'expo-router';
 import { View, StyleSheet, Platform, Text } from 'react-native';
 import { Home, Clock, Eye, Bell, User } from 'lucide-react-native';
 import { getScreenings } from '../../utils/storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function KaderLayout() {
   const [unreadAlerts, setUnreadAlerts] = useState(0);
+  const insets = useSafeAreaInsets();
 
   // Poll for severe screenings count to show badge
   useEffect(() => {
@@ -26,7 +28,17 @@ export default function KaderLayout() {
       screenOptions={{
         tabBarActiveTintColor: '#38BDF8', // Cyan/sky blue active color
         tabBarInactiveTintColor: '#94A3B8', // Slate gray inactive color
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [
+          styles.tabBar,
+          {
+            height: Platform.OS === 'ios' 
+              ? (insets.bottom > 0 ? 64 + insets.bottom : 76) 
+              : (insets.bottom > 0 ? 64 + insets.bottom : 72),
+            paddingBottom: Platform.OS === 'ios'
+              ? (insets.bottom > 0 ? insets.bottom - 4 : 12)
+              : (insets.bottom > 0 ? insets.bottom : 12),
+          }
+        ],
         tabBarLabelStyle: styles.tabBarLabel,
         headerShown: false,
       }}
@@ -83,9 +95,7 @@ export default function KaderLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    height: Platform.OS === 'ios' ? 90 : 72,
-    paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+    paddingTop: 8,
     backgroundColor: '#1E293B', // Dark navy background
     borderTopWidth: 0,
     shadowColor: '#000000',

@@ -1,77 +1,92 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
-import { getScreenings, saveHbInput } from '../../utils/storage';
-import { PlusCircle, Search, CheckCircle2, ChevronRight, Activity, Beaker } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
+import { useRouter } from 'expo-router';
+import { getScreenings } from '../../utils/storage';
+import { BarChart } from 'react-native-chart-kit';
+import { Beaker, Users, ChevronRight, BarChart2, HeartPulse, Activity } from 'lucide-react-native';
 
-export default function TbmInputScreen() {
-  const [searchId, setSearchId] = useState('');
-  const [foundStudent, setFoundStudent] = useState(null);
-  const [hbValue, setHbValue] = useState('');
+const screenWidth = Dimensions.get('window').width;
+
+export default function TbmDashboardScreen() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
   const [screenings, setScreenings] = useState([]);
-  const [submitting, setSubmitting] = useState(false);
+  const [sessionStats, setSessionStats] = useState([]);
+  const [totalScreened, setTotalScreened] = useState(0);
+  const [barData, setBarData] = useState({ labels: [], datasets: [{ data: [] }] });
 
-  const loadScreenings = async () => {
-    const data = await getScreenings();
-    setScreenings(data);
+  const loadStats = async () => {
+    try {
+      const data = await getScreenings();
+      setScreenings(data);
+      setTotalScreened(data.length);
+
+      const sessionNames = ['Sesi 1', 'Sesi 2', 'Sesi 3', 'Sesi 4'];
+      const stats = sessionNames.map(session => {
+        const sessionData = data.filter(item => item.session === session);
+        const total = sessionData.length;
+        // Count anemia based on final tbmResult, fallback to result if null
+        const anemiaCount = sessionData.filter(item => {
+          const finalRes = item.tbmResult || item.result;
+          return finalRes && finalRes !== 'No Anemia';
+        }).length;
+        const severeCount = sessionData.filter(item => {
+          const finalRes = item.tbmResult || item.result;
+          return finalRes === 'Berat';
+        }).length;
+        const rate = total > 0 ? Math.round((anemiaCount / total) * 100) : 0;
+        
+        return {
+          session,
+          total,
+          anemiaCount,
+          severeCount,
+          rate
+        };
+      });
+
+      setSessionStats(stats);
+
+      // Set Bar Chart data comparing total screened per session
+      setBarData({
+        labels: ['Sesi 1', 'Sesi 2', 'Sesi 3', 'Sesi 4'],
+        datasets: [
+          {
+            data: stats.map(s => s.total)
+          }
+        ]
+      });
+
+    } catch (e) {
+      console.error('Error loading TBM dashboard stats:', e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    loadScreenings();
-    const interval = setInterval(loadScreenings, 4000);
+    loadStats();
+    const interval = setInterval(loadStats, 4000);
     return () => clearInterval(interval);
   }, []);
 
-  const handleSearch = () => {
-    if (!searchId) {
-      Alert.alert('Error', 'Silakan masukkan ID Anonim.');
-      return;
-    }
-    const student = screenings.find(item => item.id.toLowerCase() === searchId.trim().toLowerCase());
-    if (student) {
-      setFoundStudent(student);
-      setHbValue(student.hbValue ? student.hbValue.toString() : '');
-    } else {
-      Alert.alert('Tidak Ditemukan', `Siswa dengan ID ${searchId.toUpperCase()} tidak ditemukan dalam database.`);
-      setFoundStudent(null);
-    }
+  const chartConfig = {
+    backgroundGradientFrom: '#FFFFFF',
+    backgroundGradientTo: '#FFFFFF',
+    color: (opacity = 1) => `rgba(13, 148, 136, ${opacity})`,
+    labelColor: (opacity = 1) => `rgba(71, 85, 105, ${opacity})`,
+    barPercentage: 0.5,
+    decimalPlaces: 0,
   };
 
-  const handleSelectStudent = (student) => {
-    setFoundStudent(student);
-    setSearchId(student.id);
-    setHbValue(student.hbValue ? student.hbValue.toString() : '');
-  };
-
-  const handleSubmit = async () => {
-    if (!hbValue || isNaN(parseFloat(hbValue))) {
-      Alert.alert('Error', 'Silakan masukkan nilai Hb yang valid (contoh: 11.5).');
-      return;
-    }
-
-    const hbVal = parseFloat(hbValue);
-    if (hbVal < 3.0 || hbVal > 22.0) {
-      Alert.alert('Validasi Gagal', 'Nilai hemoglobin harus berkisar antara 3.0 hingga 22.0 g/dL.');
-      return;
-    }
-
-    setSubmitting(true);
-    setTimeout(async () => {
-      try {
-        await saveHbInput(foundStudent.id, hbValue);
-        Alert.alert('Sukses', `Data Quik-Check Hb untuk ${foundStudent.id} berhasil disimpan di HP.`);
-        
-        // Reset form
-        setFoundStudent(null);
-        setSearchId('');
-        setHbValue('');
-        loadScreenings();
-      } catch (e) {
-        Alert.alert('Error', 'Gagal menyimpan data.');
-      } finally {
-        setSubmitting(false);
-      }
-    }, 1500); // 1.5s simulated submit
-  };
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0D9488" />
+        <Text style={styles.loadingText}>Memuat dashboard TBMs...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
@@ -81,92 +96,82 @@ export default function TbmInputScreen() {
           <Beaker size={26} color="#0D9488" />
           <Text style={styles.logoText}>Laboratorium TBMs</Text>
         </View>
-        <Text style={styles.headerTitle}>Input Quik-Check Hb</Text>
-        <Text style={styles.headerSubtitle}>Masukkan nilai Gold Standard hemoglobin untuk penalaan model AI.</Text>
+        <Text style={styles.headerTitle}>Pusat Data Skrining</Text>
+        <Text style={styles.headerSubtitle}>Pantau dan validasi diagnosis anemia siswi di 4 sesi skrining.</Text>
       </View>
 
-      {/* Search Student Section */}
-      <View style={styles.searchCard}>
-        <Text style={styles.cardLabel}>Cari ID Anonim Siswi:</Text>
-        <View style={styles.searchRow}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Contoh: AV-0010"
-            placeholderTextColor="#94A3B8"
-            value={searchId}
-            onChangeText={setSearchId}
-            autoCapitalize="characters"
-          />
-          <TouchableOpacity style={styles.searchBtn} onPress={handleSearch}>
-            <Search size={18} color="#FFF" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Suggestion list of pending Hb input students */}
-        {screenings.filter(s => !s.hbValue).length > 0 && !foundStudent && (
-          <View style={styles.suggestionsContainer}>
-            <Text style={styles.suggestionsTitle}>Menunggu Hasil Lab Hb:</Text>
-            {screenings.filter(s => !s.hbValue).slice(0, 3).map(student => (
-              <TouchableOpacity
-                key={student.id}
-                style={styles.suggestionItem}
-                onPress={() => handleSelectStudent(student)}
-              >
-                <Text style={styles.suggestionText}>{student.id} ({student.result === 'No Anemia' ? 'Negatif' : `Anemia ${student.result}`})</Text>
-                <ChevronRight size={14} color="#0D9488" />
-              </TouchableOpacity>
-            ))}
+      {/* Overview Stat Card */}
+      <View style={styles.overviewCard}>
+        <View style={styles.overviewHeader}>
+          <Users size={24} color="#0D9488" style={{ marginRight: 10 }} />
+          <View>
+            <Text style={styles.overviewTitle}>Akumulasi Skrining</Text>
+            <Text style={styles.overviewSubtitle}>Total siswi yang telah diperiksa</Text>
           </View>
-        )}
+        </View>
+        <Text style={styles.overviewValue}>{totalScreened} Siswi</Text>
+        
+        <TouchableOpacity 
+          style={styles.ctaBtn}
+          onPress={() => router.push('/(tbms)/camera')}
+        >
+          <Text style={styles.ctaBtnText}>Mulai Skrining Sesi</Text>
+          <ChevronRight size={18} color="#FFFFFF" />
+        </TouchableOpacity>
       </View>
 
-      {/* Hb Input Form (Shows only if student found) */}
-      {foundStudent && (
-        <View style={styles.formCard}>
-          <Text style={styles.formSectionTitle}>Informasi Siswi</Text>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoName}>ID Anonim:</Text>
-            <Text style={styles.infoVal}>{foundStudent.id}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoName}>Tanggal Skrining:</Text>
-            <Text style={styles.infoVal}>{foundStudent.date}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoName}>Hasil Analisis Awal (AI):</Text>
-            <Text style={[styles.infoVal, { fontWeight: 'bold', color: foundStudent.result === 'No Anemia' ? '#10B981' : '#EF4444' }]}>
-              {foundStudent.result === 'No Anemia' ? 'Negatif' : `Anemia ${foundStudent.result}`}
-            </Text>
-          </View>
+      {/* Analytics chart */}
+      <Text style={styles.sectionTitle}>Perbandingan Volume Skrining per Sesi</Text>
+      <View style={styles.chartCard}>
+        <BarChart
+          data={barData}
+          width={screenWidth - 48}
+          height={200}
+          chartConfig={chartConfig}
+          verticalLabelRotation={0}
+          fromZero
+          yAxisLabel=""
+          yAxisSuffix=""
+        />
+      </View>
 
-          <View style={styles.divider} />
-
-          {/* Hb input fields */}
-          <Text style={styles.inputLabel}>Masukkan Hasil Quik-Check Hb (g/dL):</Text>
-          <View style={styles.hbInputContainer}>
-            <TextInput
-              style={styles.hbInput}
-              placeholder="Contoh: 11.5"
-              placeholderTextColor="#94A3B8"
-              keyboardType="numeric"
-              value={hbValue}
-              onChangeText={setHbValue}
-            />
-            <Text style={styles.unitText}>g/dL</Text>
+      {/* Session Comparison Grid */}
+      <Text style={styles.sectionTitle}>Detail Analitik Sesi</Text>
+      {sessionStats.map((stat, idx) => (
+        <View key={stat.session} style={styles.sessionCard}>
+          <View style={styles.sessionHeader}>
+            <Text style={styles.sessionName}>{stat.session}</Text>
+            <View style={[styles.rateBadge, { backgroundColor: stat.rate > 40 ? '#FEF2F2' : '#ECFDF5' }]}>
+              <Text style={[styles.rateBadgeText, { color: stat.rate > 40 ? '#EF4444' : '#10B981' }]}>
+                Prevalensi: {stat.rate}%
+              </Text>
+            </View>
           </View>
-
-          <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={submitting}>
-            {submitting ? (
-              <ActivityIndicator size="small" color="#FFF" />
-            ) : (
-              <>
-                <PlusCircle size={18} color="#FFF" style={{ marginRight: 8 }} />
-                <Text style={styles.submitBtnText}>Simpan Nilai Hb</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          
+          <View style={styles.statGrid}>
+            <View style={styles.statCol}>
+              <Text style={styles.statColVal}>{stat.total}</Text>
+              <Text style={styles.statColLabel}>Total Diperiksa</Text>
+            </View>
+            <View style={styles.statCol}>
+              <Text style={[styles.statColVal, { color: '#EA580C' }]}>{stat.anemiaCount}</Text>
+              <Text style={styles.statColLabel}>Kasus Anemia</Text>
+            </View>
+            <View style={styles.statCol}>
+              <Text style={[styles.statColVal, { color: '#EF4444' }]}>{stat.severeCount}</Text>
+              <Text style={styles.statColLabel}>Anemia Berat</Text>
+            </View>
+          </View>
         </View>
-      )}
+      ))}
+
+      {/* Methodology note */}
+      <View style={styles.infoBox}>
+        <Activity size={18} color="#0D9488" style={{ marginRight: 8, marginTop: 2 }} />
+        <Text style={styles.infoBoxText}>
+          TBMs bertindak sebagai supervisor klinis untuk mencatat data laboratorium hemoglobin (Gold Standard) guna mengevaluasi ketepatan model AI.
+        </Text>
+      </View>
     </ScrollView>
   );
 }
@@ -178,6 +183,17 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 40,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#64748B',
+    marginTop: 12,
   },
   header: {
     backgroundColor: '#FFFFFF',
@@ -210,133 +226,45 @@ const styles = StyleSheet.create({
     marginTop: 4,
     lineHeight: 18,
   },
-  searchCard: {
+  overviewCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 24,
     marginHorizontal: 20,
     marginTop: 24,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  cardLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#64748B',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
-  searchRow: {
-    flexDirection: 'row',
-  },
-  searchInput: {
-    flex: 1,
+    padding: 20,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    height: 48,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  overviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  overviewTitle: {
     fontSize: 15,
-    backgroundColor: '#F8FAFC',
+    fontWeight: 'bold',
     color: '#0F172A',
   },
-  searchBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#0D9488',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 10,
-  },
-  suggestionsContainer: {
-    marginTop: 18,
-  },
-  suggestionsTitle: {
+  overviewSubtitle: {
     fontSize: 12,
-    fontWeight: '600',
     color: '#64748B',
-    marginBottom: 8,
+    marginTop: 2,
   },
-  suggestionItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  suggestionText: {
-    fontSize: 13,
-    color: '#334155',
-    fontWeight: '500',
-  },
-  formCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    marginHorizontal: 20,
-    marginTop: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  formSectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 12,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-  },
-  infoName: {
-    fontSize: 13,
-    color: '#64748B',
-  },
-  infoVal: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#334155',
-  },
-  divider: {
-    height: 1.5,
-    backgroundColor: '#F1F5F9',
-    marginVertical: 16,
-  },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#475569',
-    marginBottom: 10,
-  },
-  hbInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#0D9488',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    backgroundColor: '#F0FDFA',
+  overviewValue: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#0D9488',
     marginBottom: 20,
   },
-  hbInput: {
-    flex: 1,
-    height: 52,
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#0F766E',
-  },
-  unitText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#0D9488',
-  },
-  submitBtn: {
+  ctaBtn: {
     flexDirection: 'row',
     backgroundColor: '#0D9488',
-    height: 50,
+    height: 48,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
@@ -344,11 +272,97 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 2,
   },
-  submitBtnText: {
+  ctaBtnText: {
     color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginRight: 4,
+  },
+  sectionTitle: {
     fontSize: 15,
     fontWeight: 'bold',
+    color: '#0F172A',
+    marginLeft: 24,
+    marginTop: 28,
+    marginBottom: 12,
+  },
+  chartCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    marginHorizontal: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sessionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  sessionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderColor: '#F1F5F9',
+    paddingBottom: 10,
+  },
+  sessionName: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#0F172A',
+  },
+  rateBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 99,
+  },
+  rateBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  statGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  statCol: {
+    alignItems: 'center',
+  },
+  statColVal: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0D9488',
+  },
+  statColLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  infoBox: {
+    flexDirection: 'row',
+    backgroundColor: '#F0FDFA',
+    borderRadius: 16,
+    marginHorizontal: 20,
+    marginTop: 24,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
+  },
+  infoBoxText: {
+    fontSize: 12,
+    color: '#0D9488',
+    lineHeight: 18,
+    flex: 1,
   },
 });

@@ -18,7 +18,7 @@ export default function SekolahProfilScreen() {
         <Text style={styles.profileRole}>
           {isITAdmin ? 'System IT Administrator' : 'Pihak Manajemen Sekolah'}
         </Text>
-        <Text style={styles.profileSchool}>{user?.school || 'SMAN 1 Jakarta'}</Text>
+        <Text style={styles.profileSchool}>{user?.school || 'SMPN X Palembang'}</Text>
       </View>
 
       {/* Account Permissions */}

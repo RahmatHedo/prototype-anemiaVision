@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Dimensions, Platform, StatusBar } from 'react-native';
 import { getScreenings, updateScreeningSync } from '../../utils/storage';
 import { ShieldAlert, CheckCircle2, ChevronRight, Phone, Send, Info } from 'lucide-react-native';
 
@@ -10,8 +10,10 @@ export default function PrioritasScreen() {
 
   const loadData = async () => {
     const data = await getScreenings();
-    // Filter only severe cases
-    const severeCases = data.filter(item => item.result === 'Berat');
+    // Filter only Maya's screenings
+    const mayaData = data.filter(item => item.id.startsWith('AV-0012'));
+    // Filter Maya's severe cases
+    const severeCases = mayaData.filter(item => item.result === 'Berat');
     setCriticalCases(severeCases);
   };
 
@@ -24,15 +26,15 @@ export default function PrioritasScreen() {
   const markAsReferred = (item) => {
     Alert.alert(
       'Konfirmasi Rujukan',
-      `Tandai siswi ${item.id} sudah dirujuk ke Puskesmas untuk pemeriksaan darah lengkap?`,
+      `Konfirmasi bahwa Anda (${item.id}) sudah melapor atau dirujuk ke Puskesmas untuk pemeriksaan darah lengkap?`,
       [
         { text: 'Batal', style: 'cancel' },
         { 
-          text: 'Ya, Tandai', 
+          text: 'Ya, Konfirmasi', 
           onPress: async () => {
-            // Update local state (simulate referred by changing syncStatus or result)
-            await updateScreeningSync(item.id, 'synced'); // Sync immediately / update status
-            Alert.alert('Sukses', 'Status rujukan berhasil diperbarui.');
+            // Update local state
+            await updateScreeningSync(item.id, 'synced');
+            Alert.alert('Sukses', 'Status rujukan berhasil dikonfirmasi.');
             loadData();
           } 
         }
@@ -46,10 +48,10 @@ export default function PrioritasScreen() {
       <View style={styles.header}>
         <View style={styles.logoRow}>
           <ShieldAlert size={26} color="#EF4444" />
-          <Text style={styles.logoText}>Kasus Prioritas Tinggi</Text>
+          <Text style={styles.logoText}>Status Rujukan Saya</Text>
         </View>
-        <Text style={styles.headerTitle}>Triage Rujukan Siswi</Text>
-        <Text style={styles.headerSubtitle}>Daftar siswi terindikasi anemia berat yang membutuhkan rujukan segera.</Text>
+        <Text style={styles.headerTitle}>Notifikasi Rujukan Mandiri</Text>
+        <Text style={styles.headerSubtitle}>Peringatan khusus jika hasil pemeriksaan mandiri Anda terindikasi anemia berat.</Text>
       </View>
 
       {/* Critical List */}
@@ -63,25 +65,25 @@ export default function PrioritasScreen() {
               <Text style={styles.cardId}>{item.id}</Text>
               <Text style={styles.cardTime}>{item.time} | {item.date}</Text>
             </View>
-
+ 
             <View style={styles.divider} />
-
+ 
             <View style={styles.detailBox}>
               <View style={styles.alertIndicator}>
                 <Text style={styles.alertLabel}>Risiko:</Text>
                 <Text style={styles.alertValue}>ANEMIA BERAT</Text>
               </View>
               <Text style={styles.alertDesc}>
-                Hasil analisis AI menunjukkan tingkat keyakinan {item.confidence}%. Siswi terindikasi lesu berat dan kelopak mata sangat pucat.
+                Hasil analisis AI menunjukkan tingkat keyakinan {item.confidence}%. Anda terindikasi lesu berat dan kelopak mata sangat pucat.
               </Text>
             </View>
-
+ 
             {/* Recommendations Banner */}
             <View style={styles.recommBox}>
               <Info size={14} color="#B91C1C" style={{ marginRight: 6 }} />
-              <Text style={styles.recommText}>Segera berikan rujukan Puskesmas dan hubungi orang tua.</Text>
+              <Text style={styles.recommText}>Segera lapor ke UKS sekolah dan hubungi orang tua untuk periksa ke Puskesmas.</Text>
             </View>
-
+ 
             {/* Quick Actions */}
             <View style={styles.actionRow}>
               <TouchableOpacity style={styles.actionBtnReferred} onPress={() => markAsReferred(item)}>
@@ -99,8 +101,8 @@ export default function PrioritasScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <CheckCircle2 size={48} color="#10B981" />
-            <Text style={styles.emptyText}>Bagus sekali! Tidak ada kasus kritis saat ini.</Text>
-            <Text style={styles.emptySubText}>Semua siswi terindikasi anemia berat telah dirujuk.</Text>
+            <Text style={styles.emptyText}>Status kesehatan Anda aman!</Text>
+            <Text style={styles.emptySubText}>Hasil pemeriksaan terakhir Anda tidak menunjukkan indikasi anemia berat.</Text>
           </View>
         }
       />
@@ -115,7 +117,7 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#FFFFFF',
-    paddingTop: 54,
+    paddingTop: Platform.OS === 'ios' ? 54 : (StatusBar.currentHeight || 24) + 12,
     paddingBottom: 20,
     paddingHorizontal: 20,
     borderBottomWidth: 1.5,
