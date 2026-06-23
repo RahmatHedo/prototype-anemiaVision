@@ -127,17 +127,23 @@ export default function TbmHistoryScreen() {
                 
                 {/* AI vs TBM comparison message */}
                 <View style={styles.comparisonRow}>
-                  {isMatch ? (
-                    <View style={styles.matchBadge}>
-                      <CheckCircle2 size={12} color="#10B981" style={{ marginRight: 4 }} />
-                      <Text style={styles.matchBadgeText}>Sesuai AI ({item.result})</Text>
-                    </View>
+                  {item.result !== null && item.result !== undefined ? (
+                    isMatch ? (
+                      <View style={styles.matchBadge}>
+                        <CheckCircle2 size={12} color="#10B981" style={{ marginRight: 4 }} />
+                        <Text style={styles.matchBadgeText}>Sesuai AI ({item.result})</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.mismatchBadge}>
+                        <AlertTriangle size={12} color="#EF4444" style={{ marginRight: 4 }} />
+                        <Text style={styles.mismatchBadgeText}>
+                          AI: {item.result} ➔ TBM: {finalResult}
+                        </Text>
+                      </View>
+                    )
                   ) : (
-                    <View style={styles.mismatchBadge}>
-                      <AlertTriangle size={12} color="#EF4444" style={{ marginRight: 4 }} />
-                      <Text style={styles.mismatchBadgeText}>
-                        AI: {item.result} ➔ TBM: {finalResult}
-                      </Text>
+                    <View style={styles.dataCollectionBadge}>
+                      <Text style={styles.dataCollectionBadgeText}>Diagnosis Akhir: {finalResult}</Text>
                     </View>
                   )}
                 </View>
@@ -371,5 +377,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 12,
     fontWeight: '500',
+  },
+  dataCollectionBadge: {
+    backgroundColor: '#F1F5F9',
+    alignSelf: 'flex-start',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  dataCollectionBadgeText: {
+    fontSize: 10,
+    color: '#475569',
+    fontWeight: '700',
   },
 });

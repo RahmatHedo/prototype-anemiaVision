@@ -1,89 +1,52 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator, Platform, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getScreenings } from '../../utils/storage';
-import { BarChart } from 'react-native-chart-kit';
-import { Beaker, Users, ChevronRight, BarChart2, HeartPulse, Activity } from 'lucide-react-native';
+import { Beaker, Camera, BarChart2, Clock, Activity, ChevronRight, CheckCircle, AlertCircle } from 'lucide-react-native';
 
 const screenWidth = Dimensions.get('window').width;
 
 export default function TbmDashboardScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [screenings, setScreenings] = useState([]);
-  const [sessionStats, setSessionStats] = useState([]);
   const [totalScreened, setTotalScreened] = useState(0);
-  const [barData, setBarData] = useState({ labels: [], datasets: [{ data: [] }] });
+  const [verifiedCount, setVerifiedCount] = useState(0);
+  const [mismatchCount, setMismatchCount] = useState(0);
 
-  const loadStats = async () => {
+  const loadDashboardData = async () => {
     try {
       const data = await getScreenings();
-      setScreenings(data);
       setTotalScreened(data.length);
 
-      const sessionNames = ['Sesi 1', 'Sesi 2', 'Sesi 3', 'Sesi 4'];
-      const stats = sessionNames.map(session => {
-        const sessionData = data.filter(item => item.session === session);
-        const total = sessionData.length;
-        // Count anemia based on final tbmResult, fallback to result if null
-        const anemiaCount = sessionData.filter(item => {
-          const finalRes = item.tbmResult || item.result;
-          return finalRes && finalRes !== 'No Anemia';
-        }).length;
-        const severeCount = sessionData.filter(item => {
-          const finalRes = item.tbmResult || item.result;
-          return finalRes === 'Berat';
-        }).length;
-        const rate = total > 0 ? Math.round((anemiaCount / total) * 100) : 0;
-        
-        return {
-          session,
-          total,
-          anemiaCount,
-          severeCount,
-          rate
-        };
-      });
+      // Verified represents screenings where Hb value lab is filled
+      const verified = data.filter(item => item.hbValue !== undefined && item.hbValue !== null).length;
+      setVerifiedCount(verified);
 
-      setSessionStats(stats);
-
-      // Set Bar Chart data comparing total screened per session
-      setBarData({
-        labels: ['Sesi 1', 'Sesi 2', 'Sesi 3', 'Sesi 4'],
-        datasets: [
-          {
-            data: stats.map(s => s.total)
-          }
-        ]
-      });
+      // Mismatch count where AI result does not match TBM override / lab result
+      const mismatch = data.filter(item => {
+        const finalRes = item.tbmResult || item.result;
+        return item.isConsistent === false || (item.result !== finalRes);
+      }).length;
+      setMismatchCount(mismatch);
 
     } catch (e) {
-      console.error('Error loading TBM dashboard stats:', e);
+      console.error('Error loading simplified TBM dashboard:', e);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadStats();
-    const interval = setInterval(loadStats, 4000);
+    loadDashboardData();
+    const interval = setInterval(loadDashboardData, 4000);
     return () => clearInterval(interval);
   }, []);
-
-  const chartConfig = {
-    backgroundGradientFrom: '#FFFFFF',
-    backgroundGradientTo: '#FFFFFF',
-    color: (opacity = 1) => `rgba(13, 148, 136, ${opacity})`,
-    labelColor: (opacity = 1) => `rgba(71, 85, 105, ${opacity})`,
-    barPercentage: 0.5,
-    decimalPlaces: 0,
-  };
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#0D9488" />
-        <Text style={styles.loadingText}>Memuat dashboard TBMs...</Text>
+        <Text style={styles.loadingText}>Memuat Dashboard TBMs...</Text>
       </View>
     );
   }
@@ -96,81 +59,106 @@ export default function TbmDashboardScreen() {
           <Beaker size={26} color="#0D9488" />
           <Text style={styles.logoText}>Laboratorium TBMs</Text>
         </View>
-        <Text style={styles.headerTitle}>Pusat Data Skrining</Text>
-        <Text style={styles.headerSubtitle}>Pantau dan validasi diagnosis anemia siswi di 4 sesi skrining.</Text>
-      </View>
-
-      {/* Overview Stat Card */}
-      <View style={styles.overviewCard}>
-        <View style={styles.overviewHeader}>
-          <Users size={24} color="#0D9488" style={{ marginRight: 10 }} />
-          <View>
-            <Text style={styles.overviewTitle}>Akumulasi Skrining</Text>
-            <Text style={styles.overviewSubtitle}>Total siswi yang telah diperiksa</Text>
-          </View>
-        </View>
-        <Text style={styles.overviewValue}>{totalScreened} Siswi</Text>
-        
-        <TouchableOpacity 
-          style={styles.ctaBtn}
-          onPress={() => router.push('/(tbms)/camera')}
-        >
-          <Text style={styles.ctaBtnText}>Mulai Skrining Sesi</Text>
-          <ChevronRight size={18} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Analytics chart */}
-      <Text style={styles.sectionTitle}>Perbandingan Volume Skrining per Sesi</Text>
-      <View style={styles.chartCard}>
-        <BarChart
-          data={barData}
-          width={screenWidth - 48}
-          height={200}
-          chartConfig={chartConfig}
-          verticalLabelRotation={0}
-          fromZero
-          yAxisLabel=""
-          yAxisSuffix=""
-        />
-      </View>
-
-      {/* Session Comparison Grid */}
-      <Text style={styles.sectionTitle}>Detail Analitik Sesi</Text>
-      {sessionStats.map((stat, idx) => (
-        <View key={stat.session} style={styles.sessionCard}>
-          <View style={styles.sessionHeader}>
-            <Text style={styles.sessionName}>{stat.session}</Text>
-            <View style={[styles.rateBadge, { backgroundColor: stat.rate > 40 ? '#FEF2F2' : '#ECFDF5' }]}>
-              <Text style={[styles.rateBadgeText, { color: stat.rate > 40 ? '#EF4444' : '#10B981' }]}>
-                Prevalensi: {stat.rate}%
-              </Text>
-            </View>
-          </View>
-          
-          <View style={styles.statGrid}>
-            <View style={styles.statCol}>
-              <Text style={styles.statColVal}>{stat.total}</Text>
-              <Text style={styles.statColLabel}>Total Diperiksa</Text>
-            </View>
-            <View style={styles.statCol}>
-              <Text style={[styles.statColVal, { color: '#EA580C' }]}>{stat.anemiaCount}</Text>
-              <Text style={styles.statColLabel}>Kasus Anemia</Text>
-            </View>
-            <View style={styles.statCol}>
-              <Text style={[styles.statColVal, { color: '#EF4444' }]}>{stat.severeCount}</Text>
-              <Text style={styles.statColLabel}>Anemia Berat</Text>
-            </View>
-          </View>
-        </View>
-      ))}
-
-      {/* Methodology note */}
-      <View style={styles.infoBox}>
-        <Activity size={18} color="#0D9488" style={{ marginRight: 8, marginTop: 2 }} />
-        <Text style={styles.infoBoxText}>
-          TBMs bertindak sebagai supervisor klinis untuk mencatat data laboratorium hemoglobin (Gold Standard) guna mengevaluasi ketepatan model AI.
+        <Text style={styles.headerTitle}>Pusat Kendali Skrining</Text>
+        <Text style={styles.headerSubtitle}>
+          Kelola pemeriksaan, masukkan data lab Hb, dan pantau validasi diagnosis.
         </Text>
+      </View>
+
+      {/* Welcome operational card */}
+      <View style={styles.welcomeCard}>
+        <Text style={styles.welcomeTitle}>Selamat Bekerja, Tim TBMs! 👋</Text>
+        <Text style={styles.welcomeText}>
+          Gunakan aplikasi ini untuk mendeteksi konjungtiva kelopak mata siswi, menginput data hemoglobin standar emas lab, dan mengevaluasi kinerja model AI.
+        </Text>
+      </View>
+
+      {/* Stats Cards Row */}
+      <View style={styles.statsContainer}>
+        <View style={styles.statBox}>
+          <Text style={styles.statVal}>{totalScreened}</Text>
+          <Text style={styles.statLabel}>Total Skrining</Text>
+        </View>
+        <View style={styles.statBox}>
+          <Text style={[styles.statVal, { color: '#0D9488' }]}>{verifiedCount}</Text>
+          <Text style={styles.statLabel}>Validasi Lab Selesai</Text>
+        </View>
+      </View>
+
+      {/* Active Session Status banner */}
+      <View style={styles.sessionStatusBanner}>
+        <Activity size={20} color="#0D9488" style={{ marginRight: 10 }} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.sessionStatusTitle}>Sesi Skrining Aktif: Sesi 3</Text>
+          <Text style={styles.sessionStatusText}>
+            Pemeriksaan saat ini dialokasikan ke Sesi 3. Anda dapat merubah sesi secara manual pada form pemeriksaan.
+          </Text>
+        </View>
+      </View>
+
+      {/* Quick Actions (Core Operations) */}
+      <Text style={styles.sectionTitle}>Aksi Cepat & Navigasi Utama</Text>
+      
+      {/* 1. Camera Screen */}
+      <TouchableOpacity 
+        style={styles.actionCard}
+        onPress={() => router.push('/(tbms)/camera')}
+      >
+        <View style={[styles.iconWrapper, { backgroundColor: '#CCFBF1' }]}>
+          <Camera size={24} color="#0D9488" />
+        </View>
+        <View style={styles.actionInfo}>
+          <Text style={styles.actionTitle}>Cek Kelopak Mata & Lab</Text>
+          <Text style={styles.actionDesc}>Buka kamera preview untuk mendeteksi kelopak mata dan isi data Hb lab.</Text>
+        </View>
+        <ChevronRight size={18} color="#94A3B8" />
+      </TouchableOpacity>
+
+      {/* 2. Analytics Screen */}
+      <TouchableOpacity 
+        style={styles.actionCard}
+        onPress={() => router.push('/(tbms)/analitik')}
+      >
+        <View style={[styles.iconWrapper, { backgroundColor: '#E0F2FE' }]}>
+          <BarChart2 size={24} color="#0284C7" />
+        </View>
+        <View style={styles.actionInfo}>
+          <Text style={styles.actionTitle}>Analisis Laporan Detail</Text>
+          <Text style={styles.actionDesc}>Lihat perbandingan prevalensi tiap sesi, grafik volume, dan tabel per ID siswi.</Text>
+        </View>
+        <ChevronRight size={18} color="#94A3B8" />
+      </TouchableOpacity>
+
+      {/* 3. History Screen */}
+      <TouchableOpacity 
+        style={styles.actionCard}
+        onPress={() => router.push('/(tbms)/riwayat')}
+      >
+        <View style={[styles.iconWrapper, { backgroundColor: '#F1F5F9' }]}>
+          <Clock size={24} color="#475569" />
+        </View>
+        <View style={styles.actionInfo}>
+          <Text style={styles.actionTitle}>Riwayat Log Validasi</Text>
+          <Text style={styles.actionDesc}>Daftar lengkap data skrining beserta kesesuaian AI vs Gold Standard.</Text>
+        </View>
+        <ChevronRight size={18} color="#94A3B8" />
+      </TouchableOpacity>
+
+      {/* Operational guidelines */}
+      <View style={styles.guidelineCard}>
+        <Text style={styles.guidelineHeader}>Panduan Operasional Lab:</Text>
+        <View style={styles.guidelineRow}>
+          <CheckCircle size={14} color="#0D9488" style={{ marginRight: 6, marginTop: 2 }} />
+          <Text style={styles.guidelineItem}>Pastikan senter preview aktif saat pemeriksaan mata untuk penerangan kelopak bawah.</Text>
+        </View>
+        <View style={styles.guidelineRow}>
+          <CheckCircle size={14} color="#0D9488" style={{ marginRight: 6, marginTop: 2 }} />
+          <Text style={styles.guidelineItem}>Masukkan Hb dengan rentang valid (3.0 - 22.0 g/dL) dari lab Puskesmas.</Text>
+        </View>
+        <View style={styles.guidelineRow}>
+          <CheckCircle size={14} color="#0D9488" style={{ marginRight: 6, marginTop: 2 }} />
+          <Text style={styles.guidelineItem}>Sesuaikan status override diagnosis jika model AI menunjukkan ketidaksesuaian dengan standar emas lab.</Text>
+        </View>
       </View>
     </ScrollView>
   );
@@ -197,7 +185,7 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#FFFFFF',
-    paddingTop: 54,
+    paddingTop: Platform.OS === 'ios' ? 54 : (StatusBar.currentHeight || 24) + 12,
     paddingBottom: 20,
     paddingHorizontal: 20,
     borderBottomWidth: 1.5,
@@ -226,143 +214,149 @@ const styles = StyleSheet.create({
     marginTop: 4,
     lineHeight: 18,
   },
-  overviewCard: {
+  welcomeCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
+    borderRadius: 20,
     marginHorizontal: 20,
-    marginTop: 24,
-    padding: 20,
-    borderWidth: 1.5,
+    marginTop: 20,
+    padding: 18,
+    borderWidth: 1,
     borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
   },
-  overviewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  overviewTitle: {
+  welcomeTitle: {
     fontSize: 15,
     fontWeight: 'bold',
     color: '#0F172A',
+    marginBottom: 6,
   },
-  overviewSubtitle: {
+  welcomeText: {
     fontSize: 12,
     color: '#64748B',
-    marginTop: 2,
+    lineHeight: 18,
   },
-  overviewValue: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#0D9488',
-    marginBottom: 20,
-  },
-  ctaBtn: {
+  statsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#0D9488',
-    height: 48,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#0D9488',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 2,
+    paddingHorizontal: 20,
+    marginTop: 16,
+    justifyContent: 'space-between',
   },
-  ctaBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+  statBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    width: (screenWidth - 52) / 2,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  statVal: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#475569',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  sessionStatusBanner: {
+    flexDirection: 'row',
+    backgroundColor: '#F0FDFA',
+    borderRadius: 16,
+    marginHorizontal: 20,
+    marginTop: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
+    alignItems: 'center',
+  },
+  sessionStatusTitle: {
+    fontSize: 13,
     fontWeight: 'bold',
-    marginRight: 4,
+    color: '#0D9488',
+    marginBottom: 2,
+  },
+  sessionStatusText: {
+    fontSize: 11,
+    color: '#0D9488',
+    lineHeight: 15,
   },
   sectionTitle: {
     fontSize: 15,
     fontWeight: 'bold',
     color: '#0F172A',
-    marginLeft: 24,
+    marginLeft: 20,
     marginTop: 28,
     marginBottom: 12,
   },
-  chartCard: {
+  actionCard: {
+    flexDirection: 'row',
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    marginHorizontal: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sessionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 18,
     marginHorizontal: 20,
     marginBottom: 12,
-    padding: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  iconWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  actionInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+  actionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  actionDesc: {
+    fontSize: 11,
+    color: '#64748B',
+    lineHeight: 15,
+  },
+  guidelineCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    marginHorizontal: 20,
+    marginTop: 24,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  sessionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    borderColor: '#F1F5F9',
-    paddingBottom: 10,
-  },
-  sessionName: {
-    fontSize: 15,
+  guidelineHeader: {
+    fontSize: 13,
     fontWeight: 'bold',
-    color: '#0F172A',
+    color: '#475569',
+    marginBottom: 10,
   },
-  rateBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 99,
-  },
-  rateBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  statGrid: {
+  guidelineRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    marginBottom: 8,
+    alignItems: 'flex-start',
   },
-  statCol: {
-    alignItems: 'center',
-  },
-  statColVal: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0D9488',
-  },
-  statColLabel: {
+  guidelineItem: {
     fontSize: 11,
     color: '#64748B',
-    marginTop: 4,
-    fontWeight: '500',
-  },
-  infoBox: {
-    flexDirection: 'row',
-    backgroundColor: '#F0FDFA',
-    borderRadius: 16,
-    marginHorizontal: 20,
-    marginTop: 24,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#CCFBF1',
-  },
-  infoBoxText: {
-    fontSize: 12,
-    color: '#0D9488',
-    lineHeight: 18,
+    lineHeight: 16,
     flex: 1,
-  },
+  }
 });

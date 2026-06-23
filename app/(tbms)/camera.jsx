@@ -18,6 +18,7 @@ export default function TbmCameraScreen() {
   // App States
   const [step, setStep] = useState('camera'); // 'camera', 'quality_check', 'form', 'ai_processing', 'verification', 'result'
   const [flash, setFlash] = useState(true);
+  const [isCameraActive, setIsCameraActive] = useState(false);
   const [loadingText, setLoadingText] = useState('');
   const [photoUri, setPhotoUri] = useState(null);
   
@@ -54,6 +55,23 @@ export default function TbmCameraScreen() {
   useEffect(() => {
     setCheckDate(getTodayDateString());
   }, [step]);
+
+  // Handle flash/torch shutdown and camera view active state
+  useEffect(() => {
+    let timer;
+    if (isFocused && step === 'camera') {
+      setIsCameraActive(true);
+      setFlash(true);
+    } else {
+      setFlash(false);
+      timer = setTimeout(() => {
+        setIsCameraActive(false);
+      }, 300);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [isFocused, step]);
 
   // Photo quality check error modal
   const [qualityError, setQualityError] = useState(null);
@@ -117,6 +135,15 @@ export default function TbmCameraScreen() {
     }
     if (!padsPerDay.trim()) {
       Alert.alert('Belum Lengkap', 'Silakan masukkan frekuensi ganti pembalut.');
+      return;
+    }
+
+    if (session !== 'Sesi 4') {
+      // Sesi 1-3: Skip AI, directly proceed to verification step
+      setAiResult(null);
+      setIsConsistent(false); // Sesi 1-3 doesn't use AI verification match
+      setTbmOverrideResult('No Anemia'); // default manual category
+      setStep('verification');
       return;
     }
 
@@ -191,17 +218,18 @@ export default function TbmCameraScreen() {
     setLoadingText('Menyimpan hasil ke database...');
 
     try {
-      const finalCategory = isConsistent ? aiResult.result : tbmOverrideResult;
+      const isSesi4 = session === 'Sesi 4';
+      const finalCategory = isSesi4 ? (isConsistent ? aiResult.result : tbmOverrideResult) : tbmOverrideResult;
 
       // Save record with customized date and session override
       await saveScreening({
-        result: finalCategory,
-        confidence: aiResult.confidence,
+        result: isSesi4 ? aiResult.result : null,
+        confidence: isSesi4 ? aiResult.confidence : null,
         session,
         hbValue: hbVal,
         tbmResult: finalCategory,
-        isConsistent,
-        rawCnnScore: aiResult.confidence,
+        isConsistent: isSesi4 ? isConsistent : null,
+        rawCnnScore: isSesi4 ? aiResult.confidence : null,
         date: checkDate, // Custom date from TBM input
         answers: {
           age: parseInt(age, 10),
@@ -269,59 +297,65 @@ export default function TbmCameraScreen() {
     );
   }
 
+  const isCameraHidden = !isFocused || step !== 'camera';
+
   return (
     <View style={styles.container}>
-      {/* 1. CAMERA STEP */}
-      {step === 'camera' && (
-        <View style={styles.cameraContainer}>
+      {/* 1. CAMERA STEP & FLASH MANAGEMENT */}
+      {isCameraActive && (
+        <View style={[styles.cameraContainer, isCameraHidden && styles.hiddenCameraContainer]}>
           <CameraView 
             style={styles.cameraPreview} 
             ref={cameraRef}
             facing="back"
             flash={flash ? 'on' : 'off'}
-            enableTorch={isFocused && flash && step === 'camera'}
+            enableTorch={flash}
           />
 
-          {/* Eye positioning box overlay */}
-          <View style={styles.overlayGuideContainer}>
-            <View style={styles.overlayGuideBox}>
-              <View style={styles.bracketTL} />
-              <View style={styles.bracketTR} />
-              <View style={styles.bracketBL} />
-              <View style={styles.bracketBR} />
-              <Text style={styles.guideText}>Posisikan Kelopak Mata Di Sini</Text>
-            </View>
-          </View>
+          {!isCameraHidden && (
+            <>
+              {/* Eye positioning box overlay */}
+              <View style={styles.overlayGuideContainer}>
+                <View style={styles.overlayGuideBox}>
+                  <View style={styles.bracketTL} />
+                  <View style={styles.bracketTR} />
+                  <View style={styles.bracketBL} />
+                  <View style={styles.bracketBR} />
+                  <Text style={styles.guideText}>Posisikan Kelopak Mata Di Sini</Text>
+                </View>
+              </View>
 
-          {/* Top Toolbar */}
-          <View style={styles.cameraHeader}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.cameraHeaderBtn}>
-              <X size={20} color="#FFF" />
-            </TouchableOpacity>
-            <Text style={styles.cameraTitle}>Skrining TBMs</Text>
-            <TouchableOpacity onPress={() => setFlash(!flash)} style={styles.cameraHeaderBtn}>
-              <Text style={{ color: flash ? '#EAB308' : '#FFF', fontSize: 11, fontWeight: '700' }}>
-                {flash ? '⚡ FLASH' : '⚡ OFF'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Sub banner */}
-          <View style={styles.instructionBanner}>
-            <Info size={14} color="#CCFBF1" style={{ marginRight: 6 }} />
-            <Text style={styles.instructionText}>Tarik kelopak mata bawah siswi untuk mengarahkan kamera pada konjungtiva mata.</Text>
-          </View>
-
-          {/* Shutter controls */}
-          <View style={styles.cameraControls}>
-            <View style={styles.shutterRow}>
-              <View style={styles.shutterOuter}>
-                <TouchableOpacity style={styles.shutterInner} onPress={handleCapture}>
-                  <CameraIcon size={26} color="#0D9488" />
+              {/* Top Toolbar */}
+              <View style={styles.cameraHeader}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.cameraHeaderBtn}>
+                  <X size={20} color="#FFF" />
+                </TouchableOpacity>
+                <Text style={styles.cameraTitle}>Skrining TBMs</Text>
+                <TouchableOpacity onPress={() => setFlash(!flash)} style={styles.cameraHeaderBtn}>
+                  <Text style={{ color: flash ? '#EAB308' : '#FFF', fontSize: 11, fontWeight: '700' }}>
+                    {flash ? '⚡ FLASH' : '⚡ OFF'}
+                  </Text>
                 </TouchableOpacity>
               </View>
-            </View>
-          </View>
+
+              {/* Sub banner */}
+              <View style={styles.instructionBanner}>
+                <Info size={14} color="#CCFBF1" style={{ marginRight: 6 }} />
+                <Text style={styles.instructionText}>Tarik kelopak mata bawah siswi untuk mengarahkan kamera pada konjungtiva mata.</Text>
+              </View>
+
+              {/* Shutter controls */}
+              <View style={styles.cameraControls}>
+                <View style={styles.shutterRow}>
+                  <View style={styles.shutterOuter}>
+                    <TouchableOpacity style={styles.shutterInner} onPress={handleCapture}>
+                      <CameraIcon size={26} color="#0D9488" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </>
+          )}
         </View>
       )}
 
@@ -346,8 +380,24 @@ export default function TbmCameraScreen() {
           
           <ScrollView contentContainerStyle={styles.formScroll}>
             <Text style={styles.formIntro}>
-              Isi data klinis berikut untuk memproses analisis model terintegrasi (CNN + MLP):
+              Isi data klinis berikut untuk memproses data pemeriksaan:
             </Text>
+
+            {/* Sesi Skrining Selector */}
+            <Text style={styles.inputLabel}>Pilih Sesi Skrining</Text>
+            <View style={styles.segmentedRow}>
+              {['Sesi 1', 'Sesi 2', 'Sesi 3', 'Sesi 4'].map(option => (
+                <TouchableOpacity
+                  key={option}
+                  style={[styles.segmentBtn, session === option && styles.segmentBtnActive]}
+                  onPress={() => setSession(option)}
+                >
+                  <Text style={[styles.segmentText, session === option && styles.segmentTextActive]}>
+                    {option}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
             {/* 1. Usia */}
             <Text style={styles.inputLabel}>1. Usia Siswi (Tahun)</Text>
@@ -479,7 +529,7 @@ export default function TbmCameraScreen() {
       )}
 
       {/* 4. TBM LAB VERIFICATION STEP */}
-      {step === 'verification' && aiResult && (
+      {step === 'verification' && (
         <View style={styles.formContainer}>
           <View style={styles.formHeader}>
             <Text style={styles.formTitle}>Verifikasi Diagnostik TBM</Text>
@@ -489,32 +539,29 @@ export default function TbmCameraScreen() {
           </View>
           
           <ScrollView contentContainerStyle={styles.formScroll}>
-            {/* AI combined result display */}
-            <View style={styles.aiResultCard}>
-              <Text style={styles.aiCardTitle}>Hasil Diagnosis Model AI:</Text>
-              <View style={styles.aiResultRow}>
-                <Text style={[styles.aiResultVal, { color: aiResult.result === 'No Anemia' ? '#10B981' : aiResult.result === 'Ringan' ? '#F59E0B' : aiResult.result === 'Sedang' ? '#F97316' : '#EF4444' }]}>
-                  {aiResult.result === 'No Anemia' ? 'No Anemia (Negatif)' : `Anemia: ${aiResult.result}`}
-                </Text>
-                <Text style={styles.aiResultConfidence}>Keyakinan: {aiResult.confidence}%</Text>
-              </View>
-            </View>
-
-            {/* Session Selector */}
-            <Text style={styles.inputLabel}>Pilih Sesi Skrining:</Text>
-            <View style={styles.segmentedRow}>
-              {['Sesi 1', 'Sesi 2', 'Sesi 3', 'Sesi 4'].map(option => (
-                <TouchableOpacity
-                  key={option}
-                  style={[styles.segmentBtn, session === option && styles.segmentBtnActive]}
-                  onPress={() => setSession(option)}
-                >
-                  <Text style={[styles.segmentText, session === option && styles.segmentTextActive]}>
-                    {option}
+            {session === 'Sesi 4' && aiResult ? (
+              /* AI combined result display */
+              <View style={styles.aiResultCard}>
+                <Text style={styles.aiCardTitle}>Hasil Diagnosis Model AI:</Text>
+                <View style={styles.aiResultRow}>
+                  <Text style={[styles.aiResultVal, { color: aiResult.result === 'No Anemia' ? '#10B981' : aiResult.result === 'Ringan' ? '#F59E0B' : aiResult.result === 'Sedang' ? '#F97316' : '#EF4444' }]}>
+                    {aiResult.result === 'No Anemia' ? 'No Anemia (Negatif)' : `Anemia: ${aiResult.result}`}
                   </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+                  <Text style={styles.aiResultConfidence}>Keyakinan: {aiResult.confidence}%</Text>
+                </View>
+              </View>
+            ) : (
+              /* Sesi 1-3: Non-AI Data Collection banner */
+              <View style={styles.nonAiBanner}>
+                <Info size={18} color="#0D9488" style={{ marginRight: 8 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.nonAiBannerTitle}>Pengumpulan Data {session}</Text>
+                  <Text style={styles.nonAiBannerText}>
+                    Evaluasi AI dinonaktifkan untuk Sesi 1-3. Data klinis dan Hb akan direkam untuk keperluan training model.
+                  </Text>
+                </View>
+              </View>
+            )}
 
             {/* Hb Value Input */}
             <Text style={styles.inputLabel}>Masukkan Hasil Hb Laboratorium (g/dL):</Text>
@@ -543,30 +590,63 @@ export default function TbmCameraScreen() {
               />
             </View>
 
-            {/* AI Verification Match Toggle */}
-            <Text style={styles.inputLabel}>Validasi Kecocokan AI vs Lab:</Text>
-            <View style={styles.verificationMatchRow}>
-              <TouchableOpacity 
-                style={[styles.matchOptionBtn, isConsistent && styles.matchOptionBtnActive]}
-                onPress={() => setIsConsistent(true)}
-              >
-                <Check size={18} color={isConsistent ? '#FFF' : '#64748B'} style={{ marginRight: 6 }} />
-                <Text style={[styles.matchOptionText, isConsistent && styles.matchOptionTextActive]}>Sesuai AI</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.matchOptionBtn, !isConsistent && styles.matchOptionBtnActiveError]}
-                onPress={() => setIsConsistent(false)}
-              >
-                <AlertTriangle size={18} color={!isConsistent ? '#FFF' : '#64748B'} style={{ marginRight: 6 }} />
-                <Text style={[styles.matchOptionText, !isConsistent && styles.matchOptionTextActive]}>Tidak Sesuai</Text>
-              </TouchableOpacity>
-            </View>
+            {session === 'Sesi 4' ? (
+              <>
+                {/* AI Verification Match Toggle */}
+                <Text style={styles.inputLabel}>Validasi Kecocokan AI vs Lab:</Text>
+                <View style={styles.verificationMatchRow}>
+                  <TouchableOpacity 
+                    style={[styles.matchOptionBtn, isConsistent && styles.matchOptionBtnActive]}
+                    onPress={() => setIsConsistent(true)}
+                  >
+                    <Check size={18} color={isConsistent ? '#FFF' : '#64748B'} style={{ marginRight: 6 }} />
+                    <Text style={[styles.matchOptionText, isConsistent && styles.matchOptionTextActive]}>Sesuai AI</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={[styles.matchOptionBtn, !isConsistent && styles.matchOptionBtnActiveError]}
+                    onPress={() => setIsConsistent(false)}
+                  >
+                    <AlertTriangle size={18} color={!isConsistent ? '#FFF' : '#64748B'} style={{ marginRight: 6 }} />
+                    <Text style={[styles.matchOptionText, !isConsistent && styles.matchOptionTextActive]}>Tidak Sesuai</Text>
+                  </TouchableOpacity>
+                </View>
 
-            {/* Override Selection (Shows only if Consistent is False) */}
-            {!isConsistent && (
+                {/* Override Selection (Shows only if Consistent is False) */}
+                {!isConsistent && (
+                  <View style={styles.overrideCard}>
+                    <Text style={styles.overrideTitle}>Tentukan Kategori Akhir (TBM Override):</Text>
+                    <View style={styles.overrideGrid}>
+                      {[
+                        { id: 'No Anemia', label: 'No Anemia', color: '#10B981' },
+                        { id: 'Ringan', label: 'Ringan', color: '#F59E0B' },
+                        { id: 'Sedang', label: 'Sedang', color: '#F97316' },
+                        { id: 'Berat', label: 'Berat', color: '#EF4444' }
+                      ].map(cat => (
+                        <TouchableOpacity
+                          key={cat.id}
+                          style={[
+                            styles.overrideBtn, 
+                            tbmOverrideResult === cat.id && { backgroundColor: cat.color, borderColor: cat.color }
+                          ]}
+                          onPress={() => setTbmOverrideResult(cat.id)}
+                        >
+                          <Text style={[
+                            styles.overrideBtnText, 
+                            tbmOverrideResult === cat.id && { color: '#FFF', fontWeight: 'bold' }
+                          ]}>
+                            {cat.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </>
+            ) : (
+              /* Sesi 1-3: Direct manual diagnosis picker */
               <View style={styles.overrideCard}>
-                <Text style={styles.overrideTitle}>Tentukan Kategori Akhir (TBM Override):</Text>
+                <Text style={styles.overrideTitle}>Tentukan Kategori Anemia Akhir (Pemeriksaan Fisik/Lab):</Text>
                 <View style={styles.overrideGrid}>
                   {[
                     { id: 'No Anemia', label: 'No Anemia', color: '#10B981' },
@@ -654,6 +734,14 @@ const styles = StyleSheet.create({
   cameraContainer: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  hiddenCameraContainer: {
+    position: 'absolute',
+    left: -9999,
+    top: -9999,
+    width: 1,
+    height: 1,
+    opacity: 0,
   },
   cameraPreview: {
     flex: 1,
@@ -1249,5 +1337,26 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  nonAiBanner: {
+    flexDirection: 'row',
+    backgroundColor: '#F0FDFA',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  nonAiBannerTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#0D9488',
+    marginBottom: 4,
+  },
+  nonAiBannerText: {
+    fontSize: 12,
+    color: '#0D9488',
+    lineHeight: 18,
   },
 });

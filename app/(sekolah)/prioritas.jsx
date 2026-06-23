@@ -8,7 +8,7 @@ export default function SekolahPrioritasScreen() {
 
   const loadData = async () => {
     const data = await getScreenings();
-    const severeCases = data.filter(item => item.result === 'Berat');
+    const severeCases = data.filter(item => (item.tbmResult || item.result) === 'Berat');
     setCriticalCases(severeCases);
   };
 
@@ -61,9 +61,10 @@ export default function SekolahPrioritasScreen() {
             </View>
 
             <View style={styles.alertContent}>
-              <Text style={styles.alertTitle}>⚠️ INDIKASI ANEMIA BERAT</Text>
+              <Text style={styles.alertTitle}>⚠️ INDIKASI ANEMIA BERAT ({item.session || 'Sesi Skrining'})</Text>
               <Text style={styles.alertDesc}>
-                Confidence score model AI: {item.confidence}%. Gejala klinis yang dilaporkan kader menunjukkan kondisi lemas akut dan kelopak mata sangat pucat.
+                Kadar Hb: {item.hbValue ? `${item.hbValue.toFixed(1)} g/dL` : 'Belum diukur'} | {item.confidence ? `Keyakinan AI: ${item.confidence}%` : 'Diagnosis Manual TBM (Tanpa AI)'}
+                {"\n"}Gejala klinis yang dilaporkan menunjukkan kondisi lemas akut dan kelopak mata sangat pucat. Harap segera tindak lanjuti kasus ini.
               </Text>
             </View>
 

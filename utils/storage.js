@@ -8,127 +8,352 @@ const STORAGE_KEYS = {
 
 // Initial Seed Data matching the user's reference image
 const SEED_SCREENINGS = [
+  // Sesi 4 (Dengan Evaluasi AI)
   {
-    id: 'AV-0012',
-    time: '10:15 WIB',
-    date: '21/06/2026',
+    id: 'AV-0025',
+    time: '14:20 WIB',
+    date: '22/06/2026',
     result: 'Ringan',
     syncStatus: 'synced',
-    confidence: 84.5,
-    session: 'Sesi 3',
+    confidence: 83.2,
+    session: 'Sesi 4',
     tbmResult: 'Ringan',
     isConsistent: true,
-    answers: { q1: 'Ya', q2: 'Ya', q3: 'Tidak', q4: 'Tidak', q5: 'Ya', q6: 'Tidak', q7: 'Tidak' }
+    hbValue: 11.2,
+    answers: { age: 16 }
   },
   {
-    id: 'AV-0011',
-    time: '10:05 WIB',
-    date: '21/06/2026',
-    result: 'No Anemia',
-    syncStatus: 'synced',
-    confidence: 91.2,
-    session: 'Sesi 3',
-    tbmResult: 'No Anemia',
-    isConsistent: true,
-    answers: {}
-  },
-  {
-    id: 'AV-0010',
-    time: '09:55 WIB',
-    date: '21/06/2026',
-    result: 'Sedang',
-    syncStatus: 'pending',
-    confidence: 76.8,
-    session: 'Sesi 3',
-    tbmResult: 'Sedang',
-    isConsistent: true,
-    answers: { q1: 'Ya', q2: 'Ya', q3: 'Ya', q4: 'Tidak', q5: 'Ya', q6: 'Ya', q7: 'Tidak' }
-  },
-  {
-    id: 'AV-0009',
-    time: '10:15 WIB',
-    date: '15/10/2023',
-    result: 'No Anemia',
-    syncStatus: 'synced',
-    confidence: 89.0,
-    session: 'Sesi 1',
-    tbmResult: 'No Anemia',
-    isConsistent: true,
-    answers: {}
-  },
-  {
-    id: 'AV-0008',
-    time: '09:55 WIB',
-    date: '15/10/2023',
+    id: 'AV-0024',
+    time: '13:50 WIB',
+    date: '22/06/2026',
     result: 'Sedang',
     syncStatus: 'synced',
-    confidence: 72.1,
-    session: 'Sesi 1',
+    confidence: 79.8,
+    session: 'Sesi 4',
     tbmResult: 'Sedang',
     isConsistent: true,
-    answers: { q1: 'Ya', q2: 'Tidak', q3: 'Ya', q4: 'Ya', q5: 'Ya', q6: 'Tidak', q7: 'Tidak' }
+    hbValue: 9.8,
+    answers: { age: 15 }
   },
   {
-    id: 'AV-0007',
-    time: '09:55 WIB',
-    date: '15/10/2023',
-    result: 'Berat',
-    syncStatus: 'pending',
-    confidence: 88.4,
-    session: 'Sesi 1',
-    tbmResult: 'Berat',
-    isConsistent: true,
-    answers: { q1: 'Ya', q2: 'Ya', q3: 'Ya', q4: 'Ya', q5: 'Ya', q6: 'Ya', q7: 'Ya' }
-  },
-  {
-    id: 'AV-0006',
-    time: '11:00 WIB',
-    date: '12/04/2024',
-    result: 'Ringan',
-    syncStatus: 'synced',
-    confidence: 81.2,
-    session: 'Sesi 2',
-    tbmResult: 'Ringan',
-    isConsistent: true,
-    hbValue: 11.5,
-    answers: {}
-  },
-  {
-    id: 'AV-0005',
-    time: '10:30 WIB',
-    date: '12/04/2024',
-    result: 'Ringan',
-    syncStatus: 'synced',
-    confidence: 79.5,
-    session: 'Sesi 2',
-    tbmResult: 'Sedang',
-    isConsistent: false,
-    hbValue: 10.2,
-    answers: {}
-  },
-  {
-    id: 'AV-0004',
-    time: '09:20 WIB',
-    date: '18/10/2026',
+    id: 'AV-0023',
+    time: '11:15 WIB',
+    date: '22/06/2026',
     result: 'No Anemia',
     syncStatus: 'synced',
-    confidence: 93.0,
+    confidence: 91.5,
     session: 'Sesi 4',
     tbmResult: 'No Anemia',
     isConsistent: true,
-    hbValue: 13.8,
-    answers: {}
+    hbValue: 13.2,
+    answers: { age: 17 }
+  },
+  {
+    id: 'AV-0022',
+    time: '10:45 WIB',
+    date: '22/06/2026',
+    result: 'Sedang',
+    syncStatus: 'synced',
+    confidence: 74.2,
+    session: 'Sesi 4',
+    tbmResult: 'Ringan',
+    isConsistent: false,
+    hbValue: 11.0,
+    answers: { age: 16 }
+  },
+  {
+    id: 'AV-0021',
+    time: '09:30 WIB',
+    date: '22/06/2026',
+    result: 'Berat',
+    syncStatus: 'synced',
+    confidence: 88.9,
+    session: 'Sesi 4',
+    tbmResult: 'Berat',
+    isConsistent: true,
+    hbValue: 7.5,
+    answers: { age: 16 }
+  },
+  {
+    id: 'AV-0020',
+    time: '09:05 WIB',
+    date: '22/06/2026',
+    result: 'No Anemia',
+    syncStatus: 'synced',
+    confidence: 94.1,
+    session: 'Sesi 4',
+    tbmResult: 'No Anemia',
+    isConsistent: true,
+    hbValue: 12.8,
+    answers: { age: 15 }
+  },
+
+  // Sesi 3 (Tanpa AI)
+  {
+    id: 'AV-0019',
+    time: '15:10 WIB',
+    date: '21/06/2026',
+    result: null,
+    syncStatus: 'synced',
+    confidence: null,
+    session: 'Sesi 3',
+    tbmResult: 'Ringan',
+    isConsistent: null,
+    hbValue: 11.5,
+    answers: { age: 16 }
+  },
+  {
+    id: 'AV-0018',
+    time: '14:30 WIB',
+    date: '21/06/2026',
+    result: null,
+    syncStatus: 'synced',
+    confidence: null,
+    session: 'Sesi 3',
+    tbmResult: 'No Anemia',
+    isConsistent: null,
+    hbValue: 12.2,
+    answers: { age: 17 }
+  },
+  {
+    id: 'AV-0017',
+    time: '11:00 WIB',
+    date: '21/06/2026',
+    result: null,
+    syncStatus: 'synced',
+    confidence: null,
+    session: 'Sesi 3',
+    tbmResult: 'Sedang',
+    isConsistent: null,
+    hbValue: 9.5,
+    answers: { age: 15 }
+  },
+  {
+    id: 'AV-0016',
+    time: '10:15 WIB',
+    date: '21/06/2026',
+    result: null,
+    syncStatus: 'synced',
+    confidence: null,
+    session: 'Sesi 3',
+    tbmResult: 'Ringan',
+    isConsistent: null,
+    hbValue: 11.1,
+    answers: { age: 16 }
+  },
+  {
+    id: 'AV-0015',
+    time: '10:05 WIB',
+    date: '21/06/2026',
+    result: null,
+    syncStatus: 'synced',
+    confidence: null,
+    session: 'Sesi 3',
+    tbmResult: 'No Anemia',
+    isConsistent: null,
+    hbValue: 13.0,
+    answers: { age: 16 }
+  },
+  {
+    id: 'AV-0014',
+    time: '09:55 WIB',
+    date: '21/06/2026',
+    result: null,
+    syncStatus: 'synced',
+    confidence: null,
+    session: 'Sesi 3',
+    tbmResult: 'Sedang',
+    isConsistent: null,
+    hbValue: 10.1,
+    answers: { age: 15 }
+  },
+
+  // Sesi 2 (Tanpa AI)
+  {
+    id: 'AV-0013',
+    time: '14:40 WIB',
+    date: '12/04/2024',
+    result: null,
+    syncStatus: 'synced',
+    confidence: null,
+    session: 'Sesi 2',
+    tbmResult: 'No Anemia',
+    isConsistent: null,
+    hbValue: 12.9,
+    answers: { age: 16 }
+  },
+  {
+    id: 'AV-0012',
+    time: '11:00 WIB',
+    date: '12/04/2024',
+    result: null,
+    syncStatus: 'synced',
+    confidence: null,
+    session: 'Sesi 2',
+    tbmResult: 'Ringan',
+    isConsistent: null,
+    hbValue: 11.5,
+    answers: { age: 16 }
+  },
+  {
+    id: 'AV-0011',
+    time: '10:30 WIB',
+    date: '12/04/2024',
+    result: null,
+    syncStatus: 'synced',
+    confidence: null,
+    session: 'Sesi 2',
+    tbmResult: 'Sedang',
+    isConsistent: null,
+    hbValue: 10.2,
+    answers: { age: 15 }
+  },
+  {
+    id: 'AV-0010',
+    time: '10:00 WIB',
+    date: '12/04/2024',
+    result: null,
+    syncStatus: 'synced',
+    confidence: null,
+    session: 'Sesi 2',
+    tbmResult: 'No Anemia',
+    isConsistent: null,
+    hbValue: 12.1,
+    answers: { age: 17 }
+  },
+  {
+    id: 'AV-0009',
+    time: '09:15 WIB',
+    date: '12/04/2024',
+    result: null,
+    syncStatus: 'synced',
+    confidence: null,
+    session: 'Sesi 2',
+    tbmResult: 'Berat',
+    isConsistent: null,
+    hbValue: 7.8,
+    answers: { age: 16 }
+  },
+
+  // Sesi 1 (Tanpa AI)
+  {
+    id: 'AV-0008',
+    time: '15:30 WIB',
+    date: '15/10/2023',
+    result: null,
+    syncStatus: 'synced',
+    confidence: null,
+    session: 'Sesi 1',
+    tbmResult: 'No Anemia',
+    isConsistent: null,
+    hbValue: 13.5,
+    answers: { age: 16 }
+  },
+  {
+    id: 'AV-0007',
+    time: '14:15 WIB',
+    date: '15/10/2023',
+    result: null,
+    syncStatus: 'synced',
+    confidence: null,
+    session: 'Sesi 1',
+    tbmResult: 'No Anemia',
+    isConsistent: null,
+    hbValue: 12.0,
+    answers: { age: 17 }
+  },
+  {
+    id: 'AV-0006',
+    time: '11:05 WIB',
+    date: '15/10/2023',
+    result: null,
+    syncStatus: 'synced',
+    confidence: null,
+    session: 'Sesi 1',
+    tbmResult: 'Ringan',
+    isConsistent: null,
+    hbValue: 11.8,
+    answers: { age: 16 }
+  },
+  {
+    id: 'AV-0005',
+    time: '10:40 WIB',
+    date: '15/10/2023',
+    result: null,
+    syncStatus: 'synced',
+    confidence: null,
+    session: 'Sesi 1',
+    tbmResult: 'Sedang',
+    isConsistent: null,
+    hbValue: 9.2,
+    answers: { age: 15 }
+  },
+  {
+    id: 'AV-0004',
+    time: '10:15 WIB',
+    date: '15/10/2023',
+    result: null,
+    syncStatus: 'synced',
+    confidence: null,
+    session: 'Sesi 1',
+    tbmResult: 'No Anemia',
+    isConsistent: null,
+    hbValue: 12.6,
+    answers: { age: 16 }
+  },
+  {
+    id: 'AV-0003',
+    time: '09:55 WIB',
+    date: '15/10/2023',
+    result: null,
+    syncStatus: 'synced',
+    confidence: null,
+    session: 'Sesi 1',
+    tbmResult: 'Sedang',
+    isConsistent: null,
+    hbValue: 10.4,
+    answers: { age: 15 }
+  },
+  {
+    id: 'AV-0002',
+    time: '09:30 WIB',
+    date: '15/10/2023',
+    result: null,
+    syncStatus: 'synced',
+    confidence: null,
+    session: 'Sesi 1',
+    tbmResult: 'Berat',
+    isConsistent: null,
+    hbValue: 7.9,
+    answers: { age: 16 }
+  },
+  {
+    id: 'AV-0001',
+    time: '09:00 WIB',
+    date: '15/10/2023',
+    result: null,
+    syncStatus: 'synced',
+    confidence: null,
+    session: 'Sesi 1',
+    tbmResult: 'No Anemia',
+    isConsistent: null,
+    hbValue: 13.1,
+    answers: { age: 16 }
   }
 ];
 
 export async function initializeDatabase() {
   try {
     const isSeeded = await AsyncStorage.getItem(STORAGE_KEYS.IS_SEEDED);
-    if (!isSeeded) {
+    const currentData = await AsyncStorage.getItem(STORAGE_KEYS.SCREENINGS);
+    const parsedData = currentData ? JSON.parse(currentData) : [];
+    
+    // Force reseed/enrichment if database is not seeded or has less than 15 items
+    if (!isSeeded || parsedData.length < 15) {
       await AsyncStorage.setItem(STORAGE_KEYS.SCREENINGS, JSON.stringify(SEED_SCREENINGS));
       await AsyncStorage.setItem(STORAGE_KEYS.HB_INPUTS, JSON.stringify([]));
       await AsyncStorage.setItem(STORAGE_KEYS.IS_SEEDED, 'true');
-      console.log('Database successfully seeded with reference history.');
+      console.log('Database successfully seeded and enriched with 25+ screening records.');
     }
   } catch (error) {
     console.error('Error seeding database:', error);

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { StyleSheet, Platform } from 'react-native';
-import { LayoutDashboard, Camera, Clock, User } from 'lucide-react-native';
+import { StyleSheet, Platform, View } from 'react-native';
+import { LayoutDashboard, BarChart2, Camera, Clock, User } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TBMsLayout() {
@@ -34,12 +34,25 @@ export default function TBMsLayout() {
           tabBarIcon: ({ color }) => <LayoutDashboard size={22} color={color} />,
         }}
       />
+
+      <Tabs.Screen
+        name="analitik"
+        options={{
+          title: 'Analitik',
+          tabBarIcon: ({ color }) => <BarChart2 size={22} color={color} />,
+        }}
+      />
       
+      {/* Floating Center Cek Mata Action Button */}
       <Tabs.Screen
         name="camera"
         options={{
           title: 'Cek Mata',
-          tabBarIcon: ({ color }) => <Camera size={22} color={color} />,
+          tabBarIcon: ({ focused }) => (
+            <View style={styles.floatingIconContainer}>
+              <Camera size={26} color="#FFFFFF" strokeWidth={2.2} />
+            </View>
+          ),
         }}
       />
       
@@ -78,5 +91,22 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     marginTop: 4,
+  },
+  floatingIconContainer: {
+    position: 'absolute',
+    top: -24, // Overlap above the tab bar
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#0D9488', // Teal background
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#0D9488',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 4,
+    borderColor: '#F8F9FA', // Matches screen background
   }
 });

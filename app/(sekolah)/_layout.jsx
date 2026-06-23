@@ -1,14 +1,31 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { StyleSheet, Platform } from 'react-native';
 import { LayoutDashboard, Users, AlertTriangle, Settings, User } from 'lucide-react-native';
 import { useAuth } from '../_layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getScreenings } from '../../utils/storage';
 
 export default function SekolahLayout() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const insets = useSafeAreaInsets();
+  const [badgeCount, setBadgeCount] = useState(null);
+
+  useEffect(() => {
+    const fetchBadge = async () => {
+      try {
+        const data = await getScreenings();
+        const count = data.filter(item => (item.tbmResult || item.result) === 'Berat').length;
+        setBadgeCount(count > 0 ? count : null);
+      } catch (e) {
+        console.error('Error fetching badge count:', e);
+      }
+    };
+    fetchBadge();
+    const interval = setInterval(fetchBadge, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <Tabs
@@ -51,6 +68,8 @@ export default function SekolahLayout() {
         options={{
           title: 'Prioritas',
           tabBarIcon: ({ color }) => <AlertTriangle size={22} color={color} />,
+          tabBarBadge: badgeCount,
+          tabBarBadgeStyle: { backgroundColor: '#EF4444', color: '#FFF' },
         }}
       />
       

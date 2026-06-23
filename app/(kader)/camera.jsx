@@ -18,6 +18,7 @@ export default function CameraScreen() {
   // App States
   const [step, setStep] = useState('camera'); // 'camera', 'quality_check', 'phase1', 'form', 'phase2', 'result'
   const [flash, setFlash] = useState(true);
+  const [isCameraActive, setIsCameraActive] = useState(false);
   const [loadingText, setLoadingText] = useState('');
   const [photoUri, setPhotoUri] = useState(null);
   
@@ -37,6 +38,23 @@ export default function CameraScreen() {
 
   // Photo quality check error modal
   const [qualityError, setQualityError] = useState(null);
+
+  // Handle flash/torch shutdown and camera view active state
+  useEffect(() => {
+    let timer;
+    if (isFocused && step === 'camera') {
+      setIsCameraActive(true);
+      setFlash(true);
+    } else {
+      setFlash(false);
+      timer = setTimeout(() => {
+        setIsCameraActive(false);
+      }, 300);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [isFocused, step]);
 
   // Take photo trigger
   const handleCapture = async () => {
@@ -213,59 +231,65 @@ export default function CameraScreen() {
     );
   }
 
+  const isCameraHidden = !isFocused || step !== 'camera';
+
   return (
     <View style={styles.container}>
-      {/* 1. CAMERA STEP */}
-      {step === 'camera' && (
-        <View style={styles.cameraContainer}>
+      {/* 1. CAMERA STEP & FLASH MANAGEMENT */}
+      {isCameraActive && (
+        <View style={[styles.cameraContainer, isCameraHidden && styles.hiddenCameraContainer]}>
           <CameraView 
             style={styles.cameraPreview} 
             ref={cameraRef}
             facing="back"
             flash={flash ? 'on' : 'off'}
-            enableTorch={isFocused && flash && step === 'camera'}
+            enableTorch={flash}
           />
 
-          {/* Eye positioning box overlay */}
-          <View style={styles.overlayGuideContainer}>
-            <View style={styles.overlayGuideBox}>
-              <View style={styles.bracketTL} />
-              <View style={styles.bracketTR} />
-              <View style={styles.bracketBL} />
-              <View style={styles.bracketBR} />
-              <Text style={styles.guideText}>Posisikan Kelopak Mata Di Sini</Text>
-            </View>
-          </View>
+          {!isCameraHidden && (
+            <>
+              {/* Eye positioning box overlay */}
+              <View style={styles.overlayGuideContainer}>
+                <View style={styles.overlayGuideBox}>
+                  <View style={styles.bracketTL} />
+                  <View style={styles.bracketTR} />
+                  <View style={styles.bracketBL} />
+                  <View style={styles.bracketBR} />
+                  <Text style={styles.guideText}>Posisikan Kelopak Mata Di Sini</Text>
+                </View>
+              </View>
 
-          {/* Top Toolbar */}
-          <View style={styles.cameraHeader}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.cameraHeaderBtn}>
-              <X size={20} color="#FFF" />
-            </TouchableOpacity>
-            <Text style={styles.cameraTitle}>Deteksi Konjungtiva</Text>
-            <TouchableOpacity onPress={() => setFlash(!flash)} style={styles.cameraHeaderBtn}>
-              <Text style={{ color: flash ? '#EAB308' : '#FFF', fontSize: 11, fontWeight: '700' }}>
-                {flash ? '⚡ FLASH' : '⚡ OFF'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Sub banner */}
-          <View style={styles.instructionBanner}>
-            <Info size={14} color="#CCFBF1" style={{ marginRight: 6 }} />
-            <Text style={styles.instructionText}>Tarik kelopak mata bawah untuk mengekspos bagian dalam yang merah/pucat.</Text>
-          </View>
-
-          {/* Shutter controls */}
-          <View style={styles.cameraControls}>
-            <View style={styles.shutterRow}>
-              <View style={styles.shutterOuter}>
-                <TouchableOpacity style={styles.shutterInner} onPress={handleCapture}>
-                  <CameraIcon size={26} color="#0D9488" />
+              {/* Top Toolbar */}
+              <View style={styles.cameraHeader}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.cameraHeaderBtn}>
+                  <X size={20} color="#FFF" />
+                </TouchableOpacity>
+                <Text style={styles.cameraTitle}>Deteksi Konjungtiva</Text>
+                <TouchableOpacity onPress={() => setFlash(!flash)} style={styles.cameraHeaderBtn}>
+                  <Text style={{ color: flash ? '#EAB308' : '#FFF', fontSize: 11, fontWeight: '700' }}>
+                    {flash ? '⚡ FLASH' : '⚡ OFF'}
+                  </Text>
                 </TouchableOpacity>
               </View>
-            </View>
-          </View>
+
+              {/* Sub banner */}
+              <View style={styles.instructionBanner}>
+                <Info size={14} color="#CCFBF1" style={{ marginRight: 6 }} />
+                <Text style={styles.instructionText}>Tarik kelopak mata bawah untuk mengekspos bagian dalam yang merah/pucat.</Text>
+              </View>
+
+              {/* Shutter controls */}
+              <View style={styles.cameraControls}>
+                <View style={styles.shutterRow}>
+                  <View style={styles.shutterOuter}>
+                    <TouchableOpacity style={styles.shutterInner} onPress={handleCapture}>
+                      <CameraIcon size={26} color="#0D9488" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </>
+          )}
         </View>
       )}
 
@@ -526,6 +550,14 @@ const styles = StyleSheet.create({
   cameraContainer: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  hiddenCameraContainer: {
+    position: 'absolute',
+    left: -9999,
+    top: -9999,
+    width: 1,
+    height: 1,
+    opacity: 0,
   },
   cameraPreview: {
     flex: 1,

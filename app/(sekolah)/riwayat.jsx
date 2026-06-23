@@ -39,12 +39,14 @@ export default function SekolahRiwayatScreen() {
       let history = [...match];
       if (history.length === 1) {
         // Mock a previous baseline entry to make the progress chart interesting
-        const baselineResult = match[0].result === 'No Anemia' || match[0].result === 'Ringan' ? 'Sedang' : 'Berat';
+        const finalRes = match[0].tbmResult || match[0].result || 'No Anemia';
+        const baselineResult = finalRes === 'No Anemia' || finalRes === 'Ringan' ? 'Sedang' : 'Berat';
         history.push({
           id: match[0].id,
           date: '15/10/2023',
           time: '09:00 WIB',
           result: baselineResult,
+          tbmResult: baselineResult,
           confidence: 81.2,
           answers: { q1: 'Ya', q2: 'Ya', q3: 'Tidak', q4: 'Tidak', q5: 'Ya', q6: 'Tidak', q7: 'Tidak' }
         });
@@ -63,9 +65,10 @@ export default function SekolahRiwayatScreen() {
       // No Anemia = 12.5 g/dL (simulated Hb), Ringan = 11.5 g/dL, Sedang = 10.5 g/dL, Berat = 7.5 g/dL
       const hbPoints = history.map(item => {
         if (item.hbValue) return item.hbValue;
-        if (item.result === 'No Anemia') return 12.5;
-        if (item.result === 'Ringan') return 11.5;
-        if (item.result === 'Sedang') return 10.0;
+        const res = item.tbmResult || item.result;
+        if (res === 'No Anemia') return 12.5;
+        if (res === 'Ringan') return 11.5;
+        if (res === 'Sedang') return 10.0;
         return 7.5;
       });
 
@@ -132,7 +135,7 @@ export default function SekolahRiwayatScreen() {
           <View style={styles.tipBox}>
             <Info size={14} color="#0D9488" style={{ marginRight: 6 }} />
             <Text style={styles.tipText}>
-              Tips: Coba cari **AV-0007** atau **AV-0010** untuk melihat simulasi riwayat perkembangan visual.
+              Tips: Cari **AV-0021** (Kasus Anemia Berat - Sesi 4 AI) atau **AV-0009** (Kasus Anemia Berat - Sesi 2 Manual) untuk simulasi perkembangan longitudinal.
             </Text>
           </View>
         )}
@@ -146,8 +149,8 @@ export default function SekolahRiwayatScreen() {
           <View style={styles.statsRow}>
             <View style={styles.statBox}>
               <Text style={styles.statLabel}>Status Terkini</Text>
-              <Text style={[styles.statVal, { color: getResultColor(selectedStudent.result) }]}>
-                {selectedStudent.result}
+              <Text style={[styles.statVal, { color: getResultColor(selectedStudent.tbmResult || selectedStudent.result) }]}>
+                {selectedStudent.tbmResult || selectedStudent.result || 'No Anemia'}
               </Text>
             </View>
             <View style={styles.statBox}>
@@ -198,15 +201,15 @@ export default function SekolahRiwayatScreen() {
                   <Calendar size={16} color="#64748B" style={{ marginRight: 6 }} />
                   <Text style={styles.timelineDate}>{item.date} ({item.time})</Text>
                 </View>
-                <View style={[styles.statusIndicator, { backgroundColor: getResultColor(item.result) + '15' }]}>
-                  <Text style={[styles.statusIndicatorText, { color: getResultColor(item.result) }]}>
-                    Anemia {item.result === 'No Anemia' ? 'Negatif' : item.result}
+                <View style={[styles.statusIndicator, { backgroundColor: getResultColor(item.tbmResult || item.result || 'No Anemia') + '15' }]}>
+                  <Text style={[styles.statusIndicatorText, { color: getResultColor(item.tbmResult || item.result || 'No Anemia') }]}>
+                    Anemia {(item.tbmResult || item.result || 'No Anemia') === 'No Anemia' ? 'Negatif' : (item.tbmResult || item.result)}
                   </Text>
                 </View>
               </View>
               {item.hbValue ? (
                 <Text style={styles.timelineHbText}>
-                  🔬 Uji Laboratorium Hb: **{item.hbValue} g/dL** (Quik-Check)
+                  🔬 Uji Laboratorium Hb: **{item.hbValue} g/dL** (Quik-Check) {item.confidence ? `| Keyakinan AI: ${item.confidence}%` : '| Diagnosis Manual TBMs'}
                 </Text>
               ) : null}
             </View>

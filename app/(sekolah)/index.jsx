@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { getScreenings } from '../../utils/storage';
 import { PieChart, BarChart } from 'react-native-chart-kit';
-import { LayoutDashboard, ShieldAlert, Award, Activity, HeartPulse } from 'lucide-react-native';
+import { LayoutDashboard, ShieldAlert, Award, Activity, HeartPulse, ChevronRight } from 'lucide-react-native';
+import { router } from 'expo-router';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -16,20 +17,24 @@ export default function SekolahDashboardScreen() {
   });
   const [pieData, setPieData] = useState([]);
   const [barData, setBarData] = useState({ labels: [], datasets: [{ data: [] }] });
+  const [severeStudents, setSevereStudents] = useState([]);
 
   const loadDashboardData = async () => {
     try {
       const data = await getScreenings();
       const total = data.length;
       
-      const noAnemia = data.filter(item => item.result === 'No Anemia').length;
-      const ringan = data.filter(item => item.result === 'Ringan').length;
-      const sedang = data.filter(item => item.result === 'Sedang').length;
-      const berat = data.filter(item => item.result === 'Berat').length;
+      const noAnemia = data.filter(item => (item.tbmResult || item.result) === 'No Anemia').length;
+      const ringan = data.filter(item => (item.tbmResult || item.result) === 'Ringan').length;
+      const sedang = data.filter(item => (item.tbmResult || item.result) === 'Sedang').length;
+      const berat = data.filter(item => (item.tbmResult || item.result) === 'Berat').length;
 
       const anemiaCount = ringan + sedang + berat;
       const anemiaRate = total > 0 ? Math.round((anemiaCount / total) * 100) : 0;
       
+      const beratData = data.filter(item => (item.tbmResult || item.result) === 'Berat');
+      setSevereStudents(beratData);
+
       setStats({
         total,
         anemiaRate,
@@ -118,6 +123,26 @@ export default function SekolahDashboardScreen() {
         <Text style={styles.headerSubtitle}>SMPN X Palembang | Sesi Jun 2026</Text>
       </View>
 
+      {/* Emergency Alert Banner */}
+      {stats.severeCount > 0 && (
+        <TouchableOpacity 
+          style={styles.emergencyBanner}
+          onPress={() => router.push('/(sekolah)/prioritas')}
+          activeOpacity={0.9}
+        >
+          <View style={styles.emergencyLeft}>
+            <ShieldAlert size={24} color="#FFF" style={styles.pulseIcon} />
+            <View style={styles.emergencyTexts}>
+              <Text style={styles.emergencyTitle}>PERINGATAN KASUS KRITIS!</Text>
+              <Text style={styles.emergencyDesc}>
+                Terdeteksi {stats.severeCount} siswi terkena Anemia Berat. Klik di sini untuk melihat rujukan prioritas segera.
+              </Text>
+            </View>
+          </View>
+          <ChevronRight size={20} color="#FFF" />
+        </TouchableOpacity>
+      )}
+
       {/* KPI Cards Row */}
       <View style={styles.kpiContainer}>
         <View style={styles.kpiRow}>
@@ -183,6 +208,38 @@ export default function SekolahDashboardScreen() {
         <Text style={styles.reviewDesc}>
           Berdasarkan perbandingan sesi, prevalensi anemia mengalami penurunan yang signifikan setelah inisiasi pemberian Tablet Tambah Darah (TTD) mingguan di sekolah. Fokus rujukan saat ini adalah {stats.severeCount} siswi kategori berat.
         </Text>
+      </View>
+
+      {/* Priority follow up list for school */}
+      <Text style={styles.chartTitle}>Daftar Prioritas Tindak Lanjut</Text>
+      <View style={styles.priorityListCard}>
+        {severeStudents.length === 0 ? (
+          <Text style={styles.emptyPriorityText}>Tidak ada kasus kritis yang perlu ditindaklanjuti saat ini.</Text>
+        ) : (
+          severeStudents.map((student) => (
+            <TouchableOpacity 
+              key={student.id} 
+              style={styles.priorityItem}
+              onPress={() => router.push('/(sekolah)/prioritas')}
+            >
+              <View style={styles.priorityItemHeader}>
+                <View style={styles.priorityBadge}>
+                  <Text style={styles.priorityId}>{student.id}</Text>
+                  <Text style={styles.prioritySession}>{student.session}</Text>
+                </View>
+                <View style={styles.hbBadge}>
+                  <Text style={styles.hbValLabel}>Hb: {student.hbValue ? `${student.hbValue.toFixed(1)} g/dL` : '-'}</Text>
+                </View>
+              </View>
+              <View style={styles.priorityItemBody}>
+                <Text style={styles.priorityTextDetail}>
+                  Skrining tanggal {student.date} ({student.time}). Segera tindaklanjuti rujukan digital.
+                </Text>
+                <ChevronRight size={16} color="#EF4444" />
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
       </View>
     </ScrollView>
   );
@@ -304,5 +361,117 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#115E59',
     lineHeight: 18,
+  },
+  emergencyBanner: {
+    backgroundColor: '#EF4444',
+    marginHorizontal: 20,
+    marginTop: 18,
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  emergencyLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  pulseIcon: {
+    marginRight: 12,
+  },
+  emergencyTexts: {
+    flex: 1,
+  },
+  emergencyTitle: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 14,
+    letterSpacing: 0.5,
+  },
+  emergencyDesc: {
+    color: '#FEE2E2',
+    fontSize: 12,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  priorityListCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    marginHorizontal: 20,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    marginBottom: 20,
+  },
+  emptyPriorityText: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    paddingVertical: 12,
+  },
+  priorityItem: {
+    backgroundColor: '#FFF5F5',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+  },
+  priorityItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  priorityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  priorityId: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#EF4444',
+  },
+  prioritySession: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  hbBadge: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 0.5,
+    borderColor: '#FCA5A5',
+  },
+  hbValLabel: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#B91C1C',
+  },
+  priorityItemBody: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  priorityTextDetail: {
+    fontSize: 11,
+    color: '#7F1D1D',
+    flex: 1,
+    marginRight: 10,
+    lineHeight: 15,
   },
 });
