@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "First-mobileapp",
+    "name": "Anemia Vision",
     "slug": "First-mobileapp",
     "scheme": "anemiavision",
     "version": "1.0.0",
@@ -24,6 +24,13 @@
     },
     "plugins": [
       "expo-router"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6faebd4b-6137-4fcd-8218-68c744ba3992"
+      }
+    },
+    "owner": "r.edoooo"
   }
 }

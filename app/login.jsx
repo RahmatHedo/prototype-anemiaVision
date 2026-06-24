@@ -189,46 +189,18 @@ export default function LoginScreen() {
         <View style={styles.splashContent}>
           {/* Large Styled Logo */}
           <View style={styles.splashLogoGraphic}>
-            <Eye size={80} color="#38BDF8" style={{ position: 'absolute', top: 4, left: 4 }} />
-            <Droplet size={38} color="#EF4444" fill="#EF4444" style={{ position: 'absolute', top: 22, left: 22 }} />
-            <Search size={26} color="#F1F5F9" strokeWidth={3} style={{ position: 'absolute', bottom: 4, right: 4 }} />
+            <Eye size={96} color="#0EA5E9" style={{ position: 'absolute', top: 0, left: 0 }} />
+            <Droplet size={46} color="#EF4444" fill="#EF4444" style={{ position: 'absolute', top: 22, left: 22 }} />
+            <Search size={30} color="#F1F5F9" strokeWidth={3} style={{ position: 'absolute', bottom: 0, right: 0 }} />
           </View>
+          
           <Text style={styles.splashAppName}>Anemia Vision</Text>
-          <Text style={styles.splashTagline}>Sistem Skrining & Deteksi Dini</Text>
+          <Text style={styles.splashTagline}>Sistem Skrining & Deteksi Dini Anemia</Text>
 
-          {/* Progress Bar & Percentage */}
-          <View style={styles.splashProgressWrapper}>
-            <View style={styles.splashProgressBarBg}>
-              <View style={[styles.splashProgressBarFill, { width: `${splashProgress * 100}%` }]} />
-            </View>
-            <Text style={styles.splashProgressPercentage}>{Math.round(splashProgress * 100)}%</Text>
-          </View>
-
-          {/* Status Message */}
-          <View style={styles.statusBox}>
-            <ActivityIndicator size="small" color="#38BDF8" style={{ marginRight: 12 }} />
-            <Text style={styles.splashStatusText}>{splashStatus}</Text>
-          </View>
-
-          {/* Terminal Console Logs */}
-          <View style={styles.terminalContainer}>
-            <Text style={styles.terminalHeader}>CONSOLE LOGS:</Text>
-            <Text style={styles.terminalText}>$ init_auth_handshake --role={selectedRole.toUpperCase()}</Text>
-            {splashProgress >= 0.05 && (
-              <Text style={styles.terminalText}>[SYS] Keystores loaded. Handshake initialized.</Text>
-            )}
-            {splashProgress >= 0.35 && (
-              <Text style={styles.terminalText}>[AI] CNN Core loaded. Ready for conjunctiva analysis.</Text>
-            )}
-            {splashProgress >= 0.65 && (
-              <Text style={styles.terminalText}>[DB] Connected to SQLite local repository.</Text>
-            )}
-            {splashProgress >= 0.85 && (
-              <Text style={styles.terminalText}>[SYNC] Checking pending local screenings...</Text>
-            )}
-            {splashProgress >= 1.0 && (
-              <Text style={[styles.terminalText, { color: '#22C55E' }]}>[OK] Authentication authorized. Launching dashboard...</Text>
-            )}
+          {/* Loading Indicator */}
+          <View style={styles.splashLoadingBox}>
+            <ActivityIndicator size="large" color="#0D9488" style={{ marginBottom: 16 }} />
+            <Text style={styles.splashLoadingText}>Mempersiapkan dasbor {selectedRole === 'kader' ? 'Maya' : selectedRole.toUpperCase()}...</Text>
           </View>
         </View>
       </View>
@@ -438,10 +410,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   splashLogoGraphic: {
-    width: 88,
-    height: 88,
+    width: 106,
+    height: 106,
     position: 'relative',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   splashAppName: {
     fontSize: 28,
@@ -456,72 +428,15 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     fontWeight: '500',
   },
-  splashProgressWrapper: {
-    width: '100%',
-    flexDirection: 'row',
+  splashLoadingBox: {
+    marginTop: 10,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+    justifyContent: 'center',
   },
-  splashProgressBarBg: {
-    flex: 1,
-    height: 10,
-    backgroundColor: '#334155',
-    borderRadius: 5,
-    marginRight: 14,
-    overflow: 'hidden',
-  },
-  splashProgressBarFill: {
-    height: '100%',
-    backgroundColor: '#0D9488',
-    borderRadius: 5,
-  },
-  splashProgressPercentage: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#38BDF8',
-    width: 40,
-    textAlign: 'right',
-  },
-  statusBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E293B',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#334155',
-    marginBottom: 24,
-  },
-  splashStatusText: {
+  splashLoadingText: {
     fontSize: 13,
-    color: '#F1F5F9',
-    fontWeight: '600',
-    flex: 1,
-  },
-  terminalContainer: {
-    backgroundColor: '#020617',
-    borderRadius: 12,
-    padding: 16,
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#1E293B',
-    minHeight: 150,
-  },
-  terminalHeader: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#64748B',
-    marginBottom: 10,
-    letterSpacing: 1.5,
-  },
-  terminalText: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    fontSize: 11,
     color: '#94A3B8',
-    lineHeight: 18,
-    marginBottom: 4,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
 });
